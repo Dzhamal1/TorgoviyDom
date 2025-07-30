@@ -23,50 +23,52 @@ interface OrderNotification {
   totalAmount: number
 }
 
-// Конфигурация для email уведомлений
-const EMAIL_CONFIG = {
-  // Используем EmailJS для отправки email без серверной части
-  serviceId: 'service_construction_store',
-  templateId: 'template_order_notification',
-  publicKey: 'your_emailjs_public_key'
+// Конфигурация EmailJS - ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ
+const EMAILJS_CONFIG = {
+  serviceId: 'service_xxxxxxx',     // Замените на ваш Service ID
+  templateId: 'template_xxxxxxx',   // Замените на ваш Template ID
+  publicKey: 'xxxxxxxxxxxxxxx'     // Замените на ваш Public Key
 }
 
 // Функция для отправки email через EmailJS
 const sendEmailNotification = async (type: 'contact' | 'order', data: any) => {
   try {
-    console.log('📧 Отправка email уведомления:', type)
+    console.log('📧 Отправка email уведомления через EmailJS:', type)
     
-    // Формируем данные для email
-    const emailData = {
-      to_email: 'info@td-stroika.ru', // Email администратора
-      from_name: 'Торговый дом "Все для стройки"',
+    // Проверяем настройки EmailJS
+    if (!EMAILJS_CONFIG.serviceId || EMAILJS_CONFIG.serviceId === 'service_xxxxxxx') {
+      console.warn('⚠️ EmailJS не настроен. Настройте EMAILJS_CONFIG в notificationService.ts')
+      return { success: false, error: 'EmailJS не настроен' }
+    }
+
+    // Динамически загружаем EmailJS
+    const emailjs = await import('@emailjs/browser')
+    
+    // Формируем данные для отправки
+    const templateParams = {
+      to_email: 'info@td-stroika.ru',
+      from_name: data.name || data.customerName,
       subject: type === 'order' ? `Новый заказ #${data.orderId}` : 'Новое сообщение с сайта',
-      message: formatEmailMessage(type, data)
+      message: formatEmailMessage(type, data),
+      customer_name: data.name || data.customerName,
+      customer_phone: data.phone || data.customerPhone,
+      customer_email: data.email || data.customerEmail || 'Не указан',
+      order_total: type === 'order' ? `${data.totalAmount}₽` : '',
+      timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // Отправляем через fetch к EmailJS API
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        service_id: 'default_service',
-        template_id: 'template_order',
-        user_id: 'public_key',
-        template_params: emailData
-      })
-    })
+    // Отправляем email
+    const response = await emailjs.send(
+      EMAILJS_CONFIG.serviceId,
+      EMAILJS_CONFIG.templateId,
+      templateParams,
+      EMAILJS_CONFIG.publicKey
+    )
 
-    if (response.ok) {
-      console.log('✅ Email уведомление отправлено успешно')
-      return { success: true }
-    } else {
-      console.warn('⚠️ Ошибка отправки email:', response.statusText)
-      return { success: false, error: response.statusText }
-    }
+    console.log('✅ Email отправлен успешно:', response.status)
+    return { success: true, response }
   } catch (error) {
-    console.warn('⚠️ Исключение при отправке email:', error.message)
+    console.error('❌ Ошибка отправки email:', error)
     return { success: false, error: error.message }
   }
 }
@@ -75,55 +77,58 @@ const sendEmailNotification = async (type: 'contact' | 'order', data: any) => {
 const formatEmailMessage = (type: 'contact' | 'order', data: any): string => {
   if (type === 'contact') {
     return `
-Новое сообщение с сайта
+Новое сообщение с сайта "Торговый дом Все для стройки"
 
-Имя: ${data.name}
-Телефон: ${data.phone}
-Email: ${data.email || 'Не указан'}
-Сообщение: ${data.message}
-Предпочтительная связь: ${getContactMethod(data.preferredContact)}
-Время: ${data.timestamp}
+👤 Имя: ${data.name}
+📞 Телефон: ${data.phone}
+📧 Email: ${data.email || 'Не указан'}
+💬 Сообщение: ${data.message}
+📱 Предпочтительная связь: ${getContactMethod(data.preferredContact)}
+🕐 Время: ${new Date().toLocaleString('ru-RU')}
     `.trim()
   } else {
     const itemsList = data.items.map((item: any) => 
-      `• ${item.name} - ${item.quantity} шт. × ${item.price}₽`
+      `• ${item.name} - ${item.quantity} шт. × ${item.price}₽ = ${item.quantity * item.price}₽`
     ).join('\n')
 
     return `
-Новый заказ #${data.orderId}
+🛒 Новый заказ #${data.orderId}
 
-Покупатель: ${data.customerName}
-Телефон: ${data.customerPhone}
-Email: ${data.customerEmail || 'Не указан'}
-Адрес: ${data.customerAddress}
+👤 Покупатель: ${data.customerName}
+📞 Телефон: ${data.customerPhone}
+📧 Email: ${data.customerEmail || 'Не указан'}
+📍 Адрес доставки: ${data.customerAddress}
 
-Товары:
+📦 Товары:
 ${itemsList}
 
-Общая сумма: ${data.totalAmount}₽
-Время заказа: ${data.timestamp}
+💰 Общая сумма: ${data.totalAmount}₽
+🕐 Время заказа: ${new Date().toLocaleString('ru-RU')}
+
+---
+Заказ получен через сайт "Торговый дом Все для стройки"
     `.trim()
   }
 }
 
-// Функция для безопасного вызова Edge Function (теперь второстепенная)
-const safeSendTelegramNotification = async (payload: any) => {
+// Функция для отправки в Telegram через Edge Function
+const sendTelegramNotification = async (payload: any) => {
   try {
-    console.log('📱 Попытка отправки в Telegram (второстепенно)...')
+    console.log('📱 Отправка Telegram уведомления...')
     
     const { data, error } = await supabase.functions.invoke('send-notification', {
       body: payload
     })
 
     if (error) {
-      console.warn('⚠️ Telegram уведомление не отправлено:', error.message)
+      console.error('❌ Ошибка Telegram уведомления:', error)
       return { success: false, error }
     }
 
     console.log('✅ Telegram уведомление отправлено')
     return { success: true, data }
   } catch (error) {
-    console.warn('⚠️ Ошибка Telegram уведомления:', error.message)
+    console.error('❌ Критическая ошибка Telegram:', error)
     return { success: false, error }
   }
 }
@@ -131,16 +136,16 @@ const safeSendTelegramNotification = async (payload: any) => {
 // Сохранение сообщения обратной связи
 export const saveContactMessage = async (data: ContactNotification) => {
   try {
-    console.log('💾 Сохраняем сообщение:', data.name)
+    console.log('💾 Обрабатываем сообщение от:', data.name)
     
     // 1. Сохраняем в базу данных
-    const { data: savedMessage, error } = await supabase
+    const { data: savedMessage, error: dbError } = await supabase
       .from('contact_messages')
       .insert([
         {
           name: data.name,
           phone: data.phone,
-          email: data.email,
+          email: data.email || null,
           message: data.message,
           preferred_contact: data.preferredContact,
           status: 'new'
@@ -149,119 +154,95 @@ export const saveContactMessage = async (data: ContactNotification) => {
       .select()
       .single()
 
-    if (error) {
-      console.error('❌ Ошибка сохранения сообщения:', error)
-      // Продолжаем работу даже если не удалось сохранить
+    if (dbError) {
+      console.error('❌ Ошибка сохранения сообщения в БД:', dbError)
+      throw new Error(`Ошибка базы данных: ${dbError.message}`)
     }
+
+    console.log('✅ Сообщение сохранено в БД:', savedMessage.id)
 
     const messageData = {
       ...data,
+      id: savedMessage.id,
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // 2. Отправляем email уведомление (ПРИОРИТЕТ)
+    // 2. Отправляем email уведомление
     const emailResult = await sendEmailNotification('contact', messageData)
     
-    // 3. Пытаемся отправить в Telegram (второстепенно)
-    safeSendTelegramNotification({
+    // 3. Отправляем в Telegram
+    const telegramResult = await sendTelegramNotification({
       type: 'contact',
       data: messageData
-    }).catch(err => {
-      console.warn('⚠️ Telegram уведомление пропущено:', err.message)
     })
 
-    console.log('✅ Сообщение обработано')
+    console.log('✅ Сообщение полностью обработано')
     return { 
       success: true, 
-      data: savedMessage || { id: Date.now(), ...data },
-      emailSent: emailResult.success
+      data: savedMessage,
+      emailSent: emailResult.success,
+      telegramSent: telegramResult.success
     }
   } catch (error) {
     console.error('❌ Критическая ошибка обработки сообщения:', error)
-    return { success: false, error }
+    return { success: false, error: { message: error.message } }
   }
 }
 
 // Сохранение заказа
 export const saveOrder = async (data: OrderNotification) => {
   try {
-    console.log('🛒 Обрабатываем заказ:', data.customerName)
+    console.log('🛒 Обрабатываем заказ от:', data.customerName)
     
     // 1. Сохраняем заказ в базу данных
-    let savedOrder = null
-    try {
-      const { data: orderData, error } = await supabase
-        .from('orders')
-        .insert([
-          {
-            customer_name: data.customerName,
-            customer_phone: data.customerPhone,
-            customer_email: data.customerEmail,
-            customer_address: data.customerAddress,
-            items: data.items,
-            total_amount: data.totalAmount,
-            status: 'new'
-          }
-        ])
-        .select()
-        .single()
+    const { data: savedOrder, error: dbError } = await supabase
+      .from('orders')
+      .insert([
+        {
+          customer_name: data.customerName,
+          customer_phone: data.customerPhone,
+          customer_email: data.customerEmail || null,
+          customer_address: data.customerAddress,
+          items: data.items,
+          total_amount: data.totalAmount,
+          status: 'new'
+        }
+      ])
+      .select()
+      .single()
 
-      if (error) {
-        console.error('❌ Ошибка сохранения заказа в БД:', error)
-      } else {
-        savedOrder = orderData
-        console.log('✅ Заказ сохранен в БД:', savedOrder.id)
-      }
-    } catch (dbError) {
-      console.error('❌ Критическая ошибка БД:', dbError)
+    if (dbError) {
+      console.error('❌ Ошибка сохранения заказа в БД:', dbError)
+      throw new Error(`Ошибка базы данных: ${dbError.message}`)
     }
+
+    console.log('✅ Заказ сохранен в БД:', savedOrder.id)
 
     const orderData = {
       ...data,
-      orderId: savedOrder?.id || data.orderId || `ORDER-${Date.now()}`,
+      orderId: savedOrder.id,
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // 2. Отправляем email уведомление (ГЛАВНЫЙ ПРИОРИТЕТ)
-    console.log('📧 Отправляем email уведомление о заказе...')
+    // 2. Отправляем email уведомление
     const emailResult = await sendEmailNotification('order', orderData)
     
-    if (emailResult.success) {
-      console.log('✅ Email уведомление о заказе отправлено')
-    } else {
-      console.warn('⚠️ Email уведомление не отправлено:', emailResult.error)
-    }
-
-    // 3. Пытаемся отправить в Telegram (второстепенно, не блокируем процесс)
-    safeSendTelegramNotification({
+    // 3. Отправляем в Telegram
+    const telegramResult = await sendTelegramNotification({
       type: 'order',
       data: orderData
-    }).catch(err => {
-      console.warn('⚠️ Telegram уведомление пропущено (не критично):', err.message)
     })
 
     console.log('✅ Заказ полностью обработан')
     return { 
       success: true, 
-      data: savedOrder || orderData,
-      emailSent: emailResult.success
+      data: savedOrder,
+      emailSent: emailResult.success,
+      telegramSent: telegramResult.success
     }
   } catch (error) {
     console.error('❌ Критическая ошибка обработки заказа:', error)
-    
-    // Даже при критической ошибке пытаемся отправить email
-    try {
-      await sendEmailNotification('order', {
-        ...data,
-        orderId: `EMERGENCY-${Date.now()}`,
-        timestamp: new Date().toLocaleString('ru-RU')
-      })
-      console.log('✅ Экстренное email уведомление отправлено')
-    } catch (emailError) {
-      console.error('❌ Не удалось отправить экстренное email:', emailError)
-    }
-    
-    return { success: false, error }
+    return { success: false, error: { message: error.message } }
   }
 }
 
