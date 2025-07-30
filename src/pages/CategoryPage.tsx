@@ -1,0 +1,249 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { Filter, SortAsc, Grid, List } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+import ProductCard from '../components/UI/ProductCard';
+import Breadcrumbs from '../components/Layout/Breadcrumbs';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
+
+const CategoryPage: React.FC = () => {
+  const { categoryId } = useParams<{ categoryId: string }>();
+  const { state } = useApp();
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'popular'>('popular');
+  const [filterInStock, setFilterInStock] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Маппинг ID категорий к их названиям
+  const categoryIdToName: { [key: string]: string } = {
+    stroy: 'Стройматериалы',
+    electrical: 'Электрика', 
+    tools: 'Инструменты',
+    plumbing: 'Сантехника',
+    furniture: 'Мебель',
+    interior: 'Интерьер',
+    fasteners: 'Крепежи',
+  };
+
+  // Обратный маппинг названий категорий к их ID
+  const categoryNameToId: { [key: string]: string } = {
+    'Стройматериалы': 'stroy',
+    'Электрика': 'electrical',
+    'Инструменты': 'tools', 
+    'Сантехника': 'plumbing',
+    'Мебель': 'furniture',
+    'Интерьер': 'interior',
+    'Крепежи': 'fasteners',
+  };
+
+  const currentCategoryName = categoryIdToName[categoryId || ''] || 'Категория';
+
+  const filteredAndSortedProducts = useMemo(() => {
+    if (!state.products || state.products.length === 0) {
+      return [];
+    }
+    
+    let filtered = state.products.filter(product => {
+      // Проверяем соответствие категории товара выбранной категории
+      if (categoryId) {
+        const expectedCategoryName = categoryIdToName[categoryId];
+        if (product.category !== expectedCategoryName) {
+          return false;
+        }
+      }
+      if (filterInStock && !product.inStock) return false;
+      if (product.price < priceRange[0] || product.price > priceRange[1]) return false;
+      return true;
+    });
+
+    // Sort products
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name, 'ru');
+        case 'price':
+          return a.price - b.price;
+        case 'popular':
+        default:
+          return b.inStock ? 1 : -1; // In stock items first
+      }
+    });
+
+    return filtered;
+  }, [state.products, categoryId, categoryIdToName, filterInStock, priceRange, sortBy]);
+
+  // Calculate price range for slider
+  const maxPrice = useMemo(() => {
+    if (!state.products || state.products.length === 0) {
+      return 100000;
+    }
+    
+    const categoryProducts = state.products.filter(
+      product => !categoryId || product.category === categoryIdToName[categoryId]
+    );
+    return categoryProducts.length > 0 ? Math.max(...categoryProducts.map(p => p.price)) : 100000;
+  }, [state.products, categoryId, categoryIdToName]);
+
+  useEffect(() => {
+    setPriceRange([0, maxPrice]);
+  }, [maxPrice]);
+
+  const breadcrumbItems = [
+    { label: 'Главная', href: '/' },
+    { label: 'Категории', href: '/categories' },
+    { label: currentCategoryName },
+  ];
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: 'RUB',
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
+
+  return (
+    <div>
+      <Breadcrumbs items={breadcrumbItems} />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">{currentCategoryName}</h1>
+            <p className="text-gray-600">
+              Найдено товаров: {filteredAndSortedProducts.length}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-4 mt-4 lg:mt-0">
+            {/* View mode toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}
+              >
+                <Grid size={20} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
+              >
+                <List size={20} />
+              </button>
+            </div>
+
+            {/* Sort dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="popular">По популярности</option>
+              <option value="name">По названию</option>
+              <option value="price">По цене</option>
+            </select>
+
+            {/* Filter toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="lg:hidden flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
+            >
+              <Filter size={20} />
+              <span>Фильтры</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Filters Sidebar */}
+          <div className={`w-full lg:w-64 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+            <div className="bg-white p-6 rounded-lg shadow-md sticky top-4">
+              <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                <Filter size={20} className="mr-2" />
+                Фильтры
+              </h3>
+
+              {/* In stock filter */}
+              <div className="mb-6">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={filterInStock}
+                    onChange={(e) => setFilterInStock(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm">Только в наличии</span>
+                </label>
+              </div>
+
+              {/* Price range */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Цена
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max={maxPrice}
+                    value={priceRange[1]}
+                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>{formatPrice(priceRange[0])}</span>
+                    <span>{formatPrice(priceRange[1])}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reset filters */}
+              <button
+                onClick={() => {
+                  setFilterInStock(false);
+                  setPriceRange([0, maxPrice]);
+                }}
+                className="w-full text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                Сбросить фильтры
+              </button>
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          <div className="flex-1">
+            {filteredAndSortedProducts.length === 0 ? (
+              <div className="text-center py-12">
+                {state.loading ? (
+                  <LoadingSpinner 
+                    size="large" 
+                    text="Загружаем товары категории..." 
+                  />
+                ) : (
+                  <>
+                    <p className="text-gray-500 text-lg">Товары не найдены</p>
+                    <p className="text-gray-400 mt-2">Попробуйте изменить параметры фильтрации</p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className={`grid gap-6 ${
+                viewMode === 'grid' 
+                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+                  : 'grid-cols-1'
+              }`}>
+                {filteredAndSortedProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CategoryPage;

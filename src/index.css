@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Оптимизированные стили для селектора количества товаров */
+.quantity-selector {
+  @apply flex items-center bg-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm transition-all duration-200;
+}
+
+/* Эффекты при наведении на селектор количества */
+.quantity-selector:hover {
+  @apply border-blue-300 shadow-md;
+}
+
+/* Стили фокуса для улучшения доступности */
+.quantity-selector:focus-within {
+  @apply border-blue-500 ring-2 ring-blue-200;
+}
+
+/* Кнопки управления количеством с плавными переходами */
+.quantity-btn {
+  @apply px-4 py-3 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200;
+}
+
+/* Поле ввода количества без стандартных стрелок */
+.quantity-input {
+  @apply w-20 text-center bg-transparent border-0 focus:outline-none py-3 text-lg font-semibold;
+}
+
+/* Кроссбраузерное удаление стрелок у числовых полей */
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Удаление стрелок в Firefox */
+.quantity-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Микро-анимация нажатия кнопок для улучшения UX */
+.quantity-btn:active {
+  @apply scale-95;
+}
+
+/* Оптимизированная система загрузки изображений */
+img {
+  @apply transition-opacity duration-300;
+}
+
+/* Состояния загрузки изображений */
+img[data-loaded="false"] {
+  @apply opacity-50;
+}
+
+img[data-loaded="true"] {
+  @apply opacity-100;
+}
+
+/* Глобальная оптимизация рендеринга изображений */
+img {
+  /* Оптимизация качества отображения изображений */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  
+  /* Предотвращение сдвига макета при загрузке */
+  height: auto;
+  max-width: 100%;
+}
+
+/* Анимированный прелоадер для изображений */
+.image-loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+/* Keyframes для анимации загрузки */
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Прогрессивное улучшение для современных форматов изображений */
+@supports (background-image: url('data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA')) {
+  .webp-support img {
+    /* Улучшенная обработка WebP изображений */
+    filter: contrast(1.02) brightness(1.01);
+  }
+}
+
+/* Утилитарные классы для ограничения строк текста */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Оптимизация производительности анимаций */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Анимации для кнопки добавления в корзину */
+@keyframes cart-success {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1.1); }
+}
+
+@keyframes cart-loading {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(0.95) rotate(180deg); }
+  100% { transform: scale(1) rotate(360deg); }
+}
+
+/* Плавные переходы для состояний кнопки */
+.cart-button-success {
+  animation: cart-success 0.6s ease-in-out;
+}
+
+.cart-button-loading {
+  animation: cart-loading 1s linear infinite;
+}
+
+/* Анимации для категорий без изображений */
+@keyframes category-icon-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.category-card:hover .category-icon {
+  animation: category-icon-float 2s ease-in-out infinite;
+}
+
+/* Улучшенные градиенты для категорий */
+.category-gradient {
+  background: linear-gradient(135deg, var(--tw-gradient-from), var(--tw-gradient-to));
+}
