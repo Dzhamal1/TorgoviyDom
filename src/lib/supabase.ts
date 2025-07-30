@@ -19,6 +19,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('📝 Пример .env файла:')
   console.error('VITE_SUPABASE_URL=https://your-project.supabase.co')
   console.error('VITE_SUPABASE_ANON_KEY=your-anon-key-here')
+  
+  // Создаем заглушку для предотвращения критических ошибок
+  throw new Error('Supabase не настроен. Проверьте файл .env')
 }
 
 // Создаем клиент Supabase с оптимальными настройками
