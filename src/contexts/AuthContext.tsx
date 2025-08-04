@@ -166,7 +166,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('ℹ️ Профиль уже существует')
           return
         }
-        console.error('❌ Ошибка создания профиля:', error.message)
+        if (error.code === '42P01') {
+          console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Таблица profiles не существует!')
+          console.error('📝 РЕШЕНИЕ: Выполните SQL команды из файла ИСПРАВЛЕНИЕ_РЕГИСТРАЦИИ.md')
+          return
+        }
+        console.error('❌ Ошибка создания профиля:', error.message, 'Код:', error.code)
         return
       }
 
@@ -206,6 +211,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         if (error.message.includes('signup is disabled')) {
           return { error: { ...error, message: 'Регистрация отключена в настройках Supabase' } }
+        }
+        if (error.message.includes('Database error saving new user')) {
+          return { error: { ...error, message: 'Ошибка базы данных. Проверьте что таблица profiles существует и триггер настроен. См. файл ИСПРАВЛЕНИЕ_РЕГИСТРАЦИИ.md' } }
         }
         if (error.message.includes('Invalid API key')) {
           return { error: { ...error, message: 'Ошибка конфигурации. Проверьте настройки Supabase' } }
