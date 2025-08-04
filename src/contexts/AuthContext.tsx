@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [])
 
-  // Загрузка профиля пользователя с retry логикой
+  // Загрузка профиля пользователя с retry логикой и автоматическим созданием
   const loadProfile = async (userId: string, retryCount = 0) => {
     try {
       console.log('🔄 Загружаем профиль пользователя:', userId)
@@ -109,7 +109,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('ℹ️ Профиль не найден, будет создан автоматически')
+          console.log('ℹ️ Профиль не найден, пытаемся создать...')
+          
+          // Попытка создать профиль если он не был создан автоматически
+          const { data: userData } = await supabase.auth.getUser()
+          if (userData.user) {
+            await createProfileIfNotExists(userData.user)
+            // Повторная попытка загрузки после создания
+            setTimeout(() => loadProfile(userId, retryCount), 1000)
+          }
           return
         }
         
@@ -125,7 +133,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return
       }
 
-      console.log('✅ Профиль загружен:', data.full_name)
+      console.log('✅ Профиль загружен:', data.full_name || data.email)
       setProfile(data)
     } catch (error) {
       console.error('❌ Критическая ошибка загрузки профиля:', error)
@@ -134,6 +142,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log(`🔄 Повторная попытка загрузки профиля (${retryCount + 1}/3)...`)
         setTimeout(() => loadProfile(userId, retryCount + 1), 3000)
       }
+    }
+  }
+
+  // Создание профиля если он не был создан автоматически триггером
+  const createProfileIfNotExists = async (user: User) => {
+    try {
+      console.log('🔄 Создаем профиль пользователя:', user.email)
+      
+      const profileData = {
+        id: user.id,
+        email: user.email!,
+        full_name: user.user_metadata?.full_name || user.email!.split('@')[0],
+        phone: user.user_metadata?.phone || null,
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .insert([profileData])
+
+      if (error) {
+        if (error.code === '23505') {
+          console.log('ℹ️ Профиль уже существует')
+          return
+        }
+        console.error('❌ Ошибка создания профиля:', error.message)
+        return
+      }
+
+      console.log('✅ Профиль создан успешно')
+    } catch (error) {
+      console.error('❌ Критическая ошибка создания профиля:', error)
     }
   }
 
@@ -187,6 +226,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Проверяем, нужно ли подтверждение email
       if (data.user && !data.user.email_confirmed_at) {
         console.log('📧 Email подтвержден автоматически или не требует подтверждения')
+      }
+
+      // Если пользователь создан и автоматически вошел, загружаем профиль
+      if (data.user && data.session) {
+        console.log('🔄 Пользователь автоматически авторизован, загружаем профиль...')
+        // Небольшая задержка для обработки триггера создания профиля
+        setTimeout(() => {
+          loadProfile(data.user!.id)
+        }, 1500)
       }
 
       return { error: null }
