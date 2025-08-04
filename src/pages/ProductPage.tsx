@@ -104,7 +104,7 @@ const ProductPage: React.FC = () => {
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = 'https://images.pexels.com/photos/1198802/pexels-photo-1198802.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop';
+                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMzMzOEZGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iNDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBkPSJNMTcwIDEzMEgxODBWMTcwSDE3MFYxMzBaTTIyMCAxMzBIMjMwVjE3MEgyMjBWMTMwWiIgZmlsbD0id2hpdGUiLz4KPHN2ZyB4PSIxNzUiIHk9IjEzNSIgd2lkdGg9IjUwIiBoZWlnaHQ9IjMwIj4KPHA+CjxwYXRoIGQ9Ik0xMCAxNUwyNSA1TDQwIDE1TDI1IDI1TDEwIDE1WiIgZmlsbD0id2hpdGUiLz4KPC9wPgo8L3N2Zz4KPHRleHQgeD0iMjAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0id2hpdGUiIGZvbnQtd2VpZ2h0PSI1MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPtCi0L7QstCw0YA8L3RleHQ+Cjx0ZXh0IHg9IjIwMCIgeT0iMjIwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+0J7RgtGB0YPRgtGB0YLQstGD0LXRgiDQuNC30L7QsdGA0LDQttC10L3QuNC1PC90ZXh0Pgo8L3N2Zz4=';
                 }}
               />
             </div>
