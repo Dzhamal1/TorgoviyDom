@@ -41,41 +41,62 @@ const CartPage: React.FC = () => {
       return;
     }
     
+    // ИСПРАВЛЕНИЕ 2: Улучшенная валидация формы
+    if (!customerInfo.name.trim()) {
+      alert('Пожалуйста, укажите ваше имя');
+      return;
+    }
+    
+    if (!customerInfo.phone.trim()) {
+      alert('Пожалуйста, укажите номер телефона');
+      return;
+    }
+    
+    if (!customerInfo.address.trim()) {
+      alert('Пожалуйста, укажите адрес доставки');
+      return;
+    }
+    
     console.log('🔄 Начинаем оформление заказа...')
     setIsOrdering(true);
 
+    // ИСПРАВЛЕНИЕ 3: Правильная структура данных заказа
     const orderData = {
-      orderId: `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       customerName: customerInfo.name,
       customerPhone: customerInfo.phone,
       customerEmail: customerInfo.email,
       customerAddress: customerInfo.address,
       items: items.map(item => ({
+        id: item.product.id,
         name: item.product.name,
         price: item.product.price,
-        quantity: item.quantity
+        quantity: item.quantity,
+        category: item.product.category,
+        total: item.product.price * item.quantity
       })),
       totalAmount: totalPrice,
     };
 
-    console.log('📦 Данные заказа подготовлены:', orderData.orderId)
+    console.log('📦 Данные заказа подготовлены:', orderData)
 
     try {
+      console.log('💾 Отправляем заказ в Supabase...');
       const result = await saveOrder(orderData);
       
       console.log('📋 Результат сохранения заказа:', result)
       
       if (result.success) {
-        console.log('✅ Заказ успешно обработан')
+        console.log('✅ Заказ успешно обработан, ID:', result.data?.id)
         clearCart();
         setOrderPlaced(true);
       } else {
         console.error('❌ Ошибка обработки заказа:', result.error)
-        alert(`Ошибка при оформлении заказа: ${result.error?.message || 'Неизвестная ошибка'}. Попробуйте еще раз.`);
+        const errorMessage = result.error?.message || 'Неизвестная ошибка';
+        alert(`Ошибка при оформлении заказа: ${errorMessage}. Попробуйте еще раз.`);
       }
     } catch (error) {
-      console.error('Error submitting order:', error);
-      alert(`Критическая ошибка: ${error.message}. Попробуйте еще раз или свяжитесь с нами по телефону.`);
+      console.error('❌ Критическая ошибка при оформлении заказа:', error);
+      alert(`Критическая ошибка: ${error?.message || 'Неизвестная ошибка'}. Попробуйте еще раз или свяжитесь с нами по телефону.`);
     } finally {
       console.log('🏁 Завершение обработки заказа')
       setIsOrdering(false);
