@@ -9,7 +9,7 @@ import ProductCard from '../components/UI/ProductCard';
 const ProductPage: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const { state, dispatch } = useApp();
-  const { addToCart } = useCart();
+  const { addItem } = useCart();
   const [quantity, setQuantity] = React.useState(1);
 
   const product = state.products.find(p => p.id === productId);
@@ -33,8 +33,13 @@ const ProductPage: React.FC = () => {
     );
   }
 
-  const handleAddToCart = () => {
-    addToCart(product, quantity);
+  const handleAddToCart = async () => {
+    try {
+      await addItem(product, quantity);
+    } catch (error) {
+      console.error('Ошибка добавления товара в корзину:', error);
+      alert('Ошибка при добавлении товара в корзину. Попробуйте еще раз.');
+    }
   };
 
   const handleQuantityChange = (newQuantity: number) => {
