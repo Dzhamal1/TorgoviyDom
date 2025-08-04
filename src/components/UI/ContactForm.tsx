@@ -27,6 +27,8 @@ const ContactForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      console.log('📤 Отправляем сообщение:', formData.name);
+      
       const result = await saveContactMessage({
         name: formData.name,
         phone: formData.phone,
@@ -35,7 +37,10 @@ const ContactForm: React.FC = () => {
         preferredContact: formData.preferredContact,
       });
 
+      console.log('📨 Результат отправки сообщения:', result);
+
       if (result.success) {
+        console.log('✅ Сообщение успешно отправлено');
         setSubmitted(true);
         // Reset form after 3 seconds
         setTimeout(() => {
@@ -49,11 +54,13 @@ const ContactForm: React.FC = () => {
           });
         }, 3000);
       } else {
-        alert('Ошибка при отправке сообщения. Попробуйте еще раз.');
+        console.error('❌ Ошибка отправки сообщения:', result.error);
+        const errorMessage = result.error?.message || 'Неизвестная ошибка';
+        alert(`Ошибка при отправке сообщения: ${errorMessage}. Попробуйте еще раз или свяжитесь с нами по телефону.`);
       }
     } catch (error) {
-      console.error('Error submitting contact form:', error);
-      alert('Ошибка при отправке сообщения. Попробуйте еще раз.');
+      console.error('❌ Критическая ошибка отправки сообщения:', error);
+      alert(`Критическая ошибка: ${error.message}. Попробуйте еще раз или свяжитесь с нами по телефону.`);
     }
     
     setIsSubmitting(false);

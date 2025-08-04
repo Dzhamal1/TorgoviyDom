@@ -174,7 +174,17 @@ const testSupabaseConnection = async () => {
 // Тестируем соединение с задержкой для избежания блокировки загрузки
 // Отключаем автоматическое тестирование в продакшене для уменьшения логов
 if (import.meta.env.DEV) {
-  setTimeout(testSupabaseConnection, 2000)
+  setTimeout(async () => {
+    await testSupabaseConnection()
+    
+    // Проверяем таблицы только если есть подключение
+    try {
+      const { verifyDatabaseTables } = await import('./database-setup')
+      await verifyDatabaseTables()
+    } catch (error) {
+      console.error('❌ Ошибка проверки таблиц:', error)
+    }
+  }, 2000)
 }
 
 // Типы для базы данных
