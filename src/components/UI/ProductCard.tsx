@@ -23,21 +23,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // ИСПРАВЛЕНИЕ 1: Убираем блокировку для товаров в наличии
-    if (!product.inStock) {
-      console.warn('Товар недоступен:', product.name);
-      return;
-    }
-    
-    if (buttonState === 'loading') {
-      console.warn('Товар уже добавляется в корзину');
-      return;
-    }
+    if (!product.inStock || buttonState === 'loading') return;
     
     setButtonState('loading');
     
     try {
-      console.log('🛒 Добавляем товар в корзину:', product.name, 'количество:', quantity);
       await addItem(product, quantity);
       setButtonState('success');
       
@@ -47,7 +37,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       }, 1500);
     } catch (error) {
       console.error('Ошибка добавления товара:', error);
-      alert('Ошибка при добавлении товара в корзину. Попробуйте еще раз.');
       setButtonState('default');
     }
   };
@@ -208,8 +197,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Кнопка добавления в корзину */}
           <button
             onClick={handleAddToCart}
-            disabled={!product.inStock || buttonState === 'loading'}
-            className={`flex-1 py-2 px-4 rounded-lg transition-all duration-300 text-white font-medium flex items-center justify-center space-x-2 ${getButtonColor()} ${!product.inStock ? 'cursor-not-allowed' : 'cursor-pointer hover:shadow-lg'} shadow-md`}
+            disabled={!product.inStock || isLoading || buttonState === 'loading'}
+            className={`flex-1 py-2 px-4 rounded-lg transition-all duration-300 text-white font-medium flex items-center justify-center space-x-2 ${getButtonColor()} disabled:cursor-not-allowed shadow-md hover:shadow-lg`}
             title={product.inStock ? 'Добавить в корзину' : 'Товара нет в наличии'}
           >
             {getButtonContent()}

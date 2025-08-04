@@ -63,7 +63,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'X-Client-Info': 'construction-store-app',
-      'apikey': supabaseAnonKey,
     },
     // Настройки fetch с обработкой ошибок
     fetch: (url, options = {}) => {

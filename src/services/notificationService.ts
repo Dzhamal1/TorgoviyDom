@@ -192,55 +192,31 @@ export const saveContactMessage = async (data: ContactNotification) => {
 // Сохранение заказа
 export const saveOrder = async (data: OrderNotification) => {
   try {
-    console.log('🛒 Начинаем обработку заказа от:', data.customerName)
-    console.log('📦 Данные заказа:', JSON.stringify(data, null, 2))
-    
-    // ИСПРАВЛЕНИЕ 4: Проверяем подключение к Supabase
-    if (!supabase) {
-      throw new Error('Supabase не инициализирован')
-    }
+    console.log('🛒 Обрабатываем заказ от:', data.customerName)
     
     // 1. Сохраняем заказ в базу данных
-    const orderToInsert = {
-      customer_name: data.customerName.trim(),
-      customer_phone: data.customerPhone.trim(),
-      customer_email: data.customerEmail?.trim() || null,
-      customer_address: data.customerAddress.trim(),
-      items: data.items,
-      total_amount: Number(data.totalAmount),
-      status: 'new'
-    }
-    
-    console.log('💾 Вставляем заказ в БД:', JSON.stringify(orderToInsert, null, 2))
-    
     const { data: savedOrder, error: dbError } = await supabase
       .from('orders')
-      .insert([orderToInsert])
+      .insert([
+        {
+          customer_name: data.customerName,
+          customer_phone: data.customerPhone,
+          customer_email: data.customerEmail || null,
+          customer_address: data.customerAddress,
+          items: data.items,
+          total_amount: data.totalAmount,
+          status: 'new'
+        }
+      ])
       .select()
       .single()
 
     if (dbError) {
-      console.error('❌ Детальная ошибка сохранения заказа в БД:')
-      console.error('Код ошибки:', dbError.code)
-      console.error('Сообщение:', dbError.message)
-      console.error('Детали:', dbError.details)
-      console.error('Подсказка:', dbError.hint)
-      
-      // Специфичные ошибки
-      if (dbError.code === '42501') {
-        throw new Error('Недостаточно прав для создания заказа. Проверьте RLS политики.')
-      }
-      if (dbError.code === '23505') {
-        throw new Error('Заказ с такими данными уже существует.')
-      }
-      if (dbError.message.includes('relation "orders" does not exist')) {
-        throw new Error('Таблица orders не существует. Выполните миграции базы данных.')
-      }
-      
+      console.error('❌ Ошибка сохранения заказа в БД:', dbError)
       throw new Error(`Ошибка базы данных: ${dbError.message}`)
     }
 
-    console.log('✅ Заказ успешно сохранен в БД с ID:', savedOrder.id)
+    console.log('✅ Заказ сохранен в БД:', savedOrder.id)
 
     const orderData = {
       ...data,
@@ -248,22 +224,14 @@ export const saveOrder = async (data: OrderNotification) => {
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // 2. Отправляем email уведомление (не блокирующее)
-    console.log('📧 Отправляем email уведомление...')
+    // 2. Отправляем email уведомление
     const emailResult = await sendEmailNotification('order', orderData)
-    if (!emailResult.success) {
-      console.warn('⚠️ Email уведомление не отправлено:', emailResult.error)
-    }
     
-    // 3. Отправляем в Telegram (не блокирующее)
-    console.log('📱 Отправляем Telegram уведомление...')
+    // 3. Отправляем в Telegram
     const telegramResult = await sendTelegramNotification({
       type: 'order',
       data: orderData
     })
-    if (!telegramResult.success) {
-      console.warn('⚠️ Telegram уведомление не отправлено:', telegramResult.error)
-    }
 
     console.log('✅ Заказ полностью обработан')
     return { 
@@ -274,7 +242,6 @@ export const saveOrder = async (data: OrderNotification) => {
     }
   } catch (error) {
     console.error('❌ Критическая ошибка обработки заказа:', error)
-    console.error('Stack trace:', error.stack)
     return { success: false, error: { message: error.message } }
   }
 }

@@ -186,7 +186,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Добавление товара в корзину
   const addItem = async (product: Product, quantity = 1): Promise<void> => {
-    console.log('🔄 CartContext: Начинаем добавление товара:', product.name);
     setIsLoading(true)
     
     try {
@@ -195,11 +194,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (existingItemIndex >= 0) {
         // Увеличиваем количество существующего товара
-        console.log('📦 Товар уже в корзине, увеличиваем количество');
         newItems[existingItemIndex].quantity += quantity
       } else {
         // Добавляем новый товар
-        console.log('🆕 Добавляем новый товар в корзину');
         const newItem: CartItem = {
           id: `${product.id}-${Date.now()}`,
           product,
@@ -210,7 +207,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       setItems(newItems)
-      console.log('💾 Сохраняем корзину, товаров:', newItems.length);
       await saveCart(newItems)
       
       console.log('✅ Товар добавлен в корзину:', product.name, 'x', quantity)
