@@ -180,7 +180,15 @@ if (import.meta.env.DEV) {
     // Проверяем таблицы только если есть подключение
     try {
       const { verifyDatabaseTables } = await import('./database-setup')
+      const { diagnoseDatabaseIssues } = await import('./database-diagnostics')
+      
       await verifyDatabaseTables()
+      
+      // Дополнительная диагностика при проблемах
+      setTimeout(async () => {
+        await diagnoseDatabaseIssues()
+      }, 3000)
+      
     } catch (error) {
       console.error('❌ Ошибка проверки таблиц:', error)
     }
