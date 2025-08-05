@@ -25,9 +25,9 @@ interface OrderNotification {
 
 // Конфигурация EmailJS - ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ
 const EMAILJS_CONFIG = {
-  serviceId: 'service_xxxxxxx',     // Замените на ваш Service ID
-  templateId: 'template_xxxxxxx',   // Замените на ваш Template ID
-  publicKey: 'xxxxxxxxxxxxxxx'     // Замените на ваш Public Key
+  serviceId: 'service_torgoviydom',     // Замените на ваш Service ID
+  templateId: 'template_487wz13',   // Замените на ваш Template ID
+  publicKey: 'f48vPEQq_JdiFiVVk'     // Замените на ваш Public Key
 }
 
 // Функция для отправки email через EmailJS
