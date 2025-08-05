@@ -259,23 +259,31 @@ function getContactMethod(method: string): string {
 // Получение статистики для админки
 export const getNotificationStats = async () => {
   try {
-    const [contactMessages, orders] = await Promise.all([
-      supabase
-        .from('contact_messages')
-        .select('status')
-        .eq('status', 'new'),
-      supabase
-        .from('orders')
-        .select('status')
-        .eq('status', 'new')
-    ])
+    const { data: contactMessages, error: contactError } = await supabase
+      .from('contact_messages')
+      .select('status')
+      .eq('status', 'new');
+
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('status', 'new');
+
+    if (contactError) {
+      console.error('Ошибка получения сообщений:', contactError.message);
+    }
+    if (ordersError) {
+      console.error('Ошибка получения заказов:', ordersError.message);
+    }
 
     return {
-      newMessages: contactMessages.data?.length || 0,
-      newOrders: orders.data?.length || 0
-    }
+      newMessages: contactMessages?.length || 0,
+      newOrders: orders?.length || 0,
+      contactError,
+      ordersError
+    };
   } catch (error) {
-    console.error('Error getting notification stats:', error)
-    return { newMessages: 0, newOrders: 0 }
+    console.error('Error getting notification stats:', error);
+    return { newMessages: 0, newOrders: 0, error };
   }
-}
+};
