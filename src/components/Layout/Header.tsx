@@ -107,8 +107,8 @@ const Header: React.FC = () => {
 
                 {userMenuOpen && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-10" 
+                    <div
+                      className="fixed inset-0 z-10"
                       onClick={() => setUserMenuOpen(false)}
                     />
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border z-20">
@@ -128,7 +128,7 @@ const Header: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="py-2">
                         <Link
                           to="/profile"
@@ -138,7 +138,7 @@ const Header: React.FC = () => {
                           <Settings size={16} />
                           <span>Настройки профиля</span>
                         </Link>
-                        
+
                         <Link
                           to="/orders"
                           className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3 transition-colors"
@@ -147,9 +147,9 @@ const Header: React.FC = () => {
                           <ShoppingCart size={16} />
                           <span>Мои заказы</span>
                         </Link>
-                        
+
                         <hr className="my-2" />
-                        
+
                         <button
                           onClick={handleSignOut}
                           className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-3 transition-colors"
@@ -179,11 +179,18 @@ const Header: React.FC = () => {
             <Link to="/cart" className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors">
               <ShoppingCart size={24} />
               {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs animate-pulse">
                   {totalItems}
                 </span>
               )}
             </Link>
+
+            {/* Админская панель (только для админов) */}
+            {user?.email?.includes('admin') && (
+              <Link to="/admin" className="p-2 text-gray-600 hover:text-blue-600 transition-colors" title="Админская панель">
+                <Settings size={24} />
+              </Link>
+            )}
 
             {/* Mobile menu button */}
             <button
@@ -271,7 +278,7 @@ const Header: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             <div className="space-y-2">
               {categories.map((category) => (
                 <Link
@@ -289,9 +296,9 @@ const Header: React.FC = () => {
       )}
 
       {/* Auth Modal */}
-      <AuthModal 
-        isOpen={authModalOpen} 
-        onClose={() => setAuthModalOpen(false)} 
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
       />
     </header>
   );

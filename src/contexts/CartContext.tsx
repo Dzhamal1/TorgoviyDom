@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { Product } from '../types'
 import { useAuth } from './AuthContext'
@@ -152,10 +153,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       // Удаляем старые записи
-      await supabase
+      const { error: deleteError } = await supabase
         .from('cart_items')
         .delete()
         .eq('user_id', user.id)
+
+      if (deleteError) {
+        console.error('❌ Ошибка удаления старых записей:', deleteError)
+        return
+      }
 
       // Добавляем новые записи
       if (cartItems.length > 0) {

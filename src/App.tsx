@@ -10,6 +10,7 @@ import CategoryPage from './pages/CategoryPage';
 import ProductPage from './pages/ProductPage';
 import CartPage from './pages/CartPage';
 import SearchPage from './pages/SearchPage';
+import AdminPage from './pages/AdminPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
                   <Route path="/product/:productId" element={<ProductPage />} />
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/search" element={<SearchPage />} />
+                  <Route path="/admin" element={<AdminPage />} />
                 </Routes>
               </main>
               <Footer />
