@@ -216,3 +216,67 @@ src/
 ## Лицензия
 
 MIT License - проект создан для демонстрации возможностей современной веб-разработки.
+
+# Инструкция по запуску и деплою
+
+## 1. Клонирование и запуск
+
+```bash
+# Клонируйте репозиторий
+ git clone <ВАШ_РЕПОЗИТОРИЙ>
+ cd <ПАПКА_ПРОЕКТА>
+
+# Установите зависимости
+ npm install
+
+# Скопируйте .env.example в .env и заполните реальные ключи
+ cp .env.example .env
+ # Откройте .env и укажите:
+ # VITE_SUPABASE_URL=... (ваш URL из Supabase)
+ # VITE_SUPABASE_ANON_KEY=... (ваш anon public ключ из Supabase)
+
+# Запустите проект
+ npm run dev
+```
+
+## 2. Настройка Supabase
+
+1. Войдите в Supabase Dashboard → выберите проект
+2. Перейдите в Table Editor → выберите таблицы `contact_messages` и `orders`
+3. Включите RLS (Row Level Security) для обеих таблиц
+4. Добавьте политику для вставки (insert):
+
+```sql
+CREATE POLICY "Anyone can create contact messages" ON contact_messages
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can create orders" ON orders
+  FOR INSERT WITH CHECK (true);
+```
+
+5. Проверьте, что таблицы существуют и имеют нужные поля
+
+## 3. Деплой на GitHub
+
+```bash
+# Добавьте все изменения
+ git add .
+ git commit -m "fix: структура провайдеров, supabase, инструкция по запуску"
+ git push origin main
+```
+
+## 4. Запуск на другом компьютере
+
+1. Установите Node.js (LTS), npm, git
+2. Клонируйте репозиторий, выполните шаги из раздела 1
+3. Заполните .env своими ключами
+4. Запустите `npm run dev`
+
+## 5. Рекомендации
+- Используйте VS Code для редактирования
+- Для деплоя на Vercel/Netlify используйте переменные окружения из .env
+- Если есть вопросы — смотрите консоль браузера и терминал
+
+---
+
+# Оригинальная инструкция ниже
