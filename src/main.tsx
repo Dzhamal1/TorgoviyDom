@@ -1,7 +1,23 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
-import './index.css';
+import './index.css'
+import { testConnection, createTables } from './lib/mysql'
+
+// Инициализация базы данных
+const initializeDatabase = async () => {
+  try {
+    const isConnected = await testConnection()
+    if (isConnected) {
+      await createTables()
+      console.log('✅ База данных успешно инициализирована')
+    }
+  } catch (error) {
+    console.error('❌ Ошибка инициализации базы данных:', error)
+  }
+}
+
+initializeDatabase();
 
 // Проверка поддержки современных браузеров
 if (!window.fetch) {

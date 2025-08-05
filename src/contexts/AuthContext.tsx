@@ -1,18 +1,16 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase, Profile } from '../lib/supabase'
+import { User } from '../lib/mysql'
+import { AuthService } from '../services/authService'
 
 interface AuthContextType {
   user: User | null
-  profile: Profile | null
-  session: Session | null
   isLoading: boolean
-  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ data: any; error: any }>
-  signIn: (email: string, password: string) => Promise<{ data: any; error: any }>
-  signOut: () => Promise<void>
-  updateProfile: (updates: Partial<Profile>) => Promise<{ data: any; error: any }>
-  refreshProfile: () => Promise<void>
+  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ success: boolean; error?: string }>
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  signOut: () => void
+  updateProfile: (updates: Partial<User>) => Promise<{ success: boolean; error?: string }>
+  isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -27,105 +25,47 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Получаем текущую сессию
-    const getSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        if (error) {
-          console.error('Ошибка получения сессии:', error)
-          return
-        }
-        
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          await loadUserProfile(session.user.id)
-        }
-      } catch (error) {
-        console.error('Критическая ошибка получения сессии:', error)
-      } finally {
-        setIsLoading(false)
-      }
+    // Проверяем токен в localStorage при загрузке
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      verifyTokenAndSetUser(token)
+    } else {
+      setIsLoading(false)
     }
-
-    getSession()
-
-    // Слушаем изменения аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Изменение состояния аутентификации:', event)
-        
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          await loadUserProfile(session.user.id)
-        } else {
-          setProfile(null)
-        }
-        
-        setIsLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
   }, [])
 
-  const loadUserProfile = async (userId: string) => {
+  const verifyTokenAndSetUser = async (token: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('Профиль не найден, будет создан автоматически')
-          return
-        }
-        console.error('Ошибка загрузки профиля:', error)
-        return
+      const user = await AuthService.verifyToken(token)
+      if (user) {
+        setUser(user)
+      } else {
+        localStorage.removeItem('auth_token')
       }
-
-      setProfile(data)
-      console.log('✅ Профиль пользователя загружен')
     } catch (error) {
-      console.error('Критическая ошибка загрузки профиля:', error)
+      console.error('Ошибка проверки токена:', error)
+      localStorage.removeItem('auth_token')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     try {
       setIsLoading(true)
+      const { user, token } = await AuthService.register(email, password, fullName, phone)
       
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: phone || ''
-          }
-        }
-      })
-
-      if (error) {
-        console.error('Ошибка регистрации:', error)
-        return { data: null, error }
-      }
-
+      localStorage.setItem('auth_token', token)
+      setUser(user)
+      
       console.log('✅ Пользователь зарегистрирован:', email)
-      return { data, error: null }
-    } catch (error) {
-      console.error('Критическая ошибка регистрации:', error)
-      return { data: null, error }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Ошибка регистрации:', error)
+      return { success: false, error: error.message }
     } finally {
       setIsLoading(false)
     }
@@ -134,96 +74,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true)
+      const { user, token } = await AuthService.login(email, password)
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (error) {
-        console.error('Ошибка входа:', error)
-        return { data: null, error }
-      }
-
+      localStorage.setItem('auth_token', token)
+      setUser(user)
+      
       console.log('✅ Пользователь вошел в систему:', email)
-      return { data, error: null }
-    } catch (error) {
-      console.error('Критическая ошибка входа:', error)
-      return { data: null, error }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Ошибка входа:', error)
+      return { success: false, error: error.message }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const signOut = async () => {
-    try {
-      setIsLoading(true)
-      
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error('Ошибка выхода:', error)
-        return
-      }
-
-      setUser(null)
-      setProfile(null)
-      setSession(null)
-      
-      console.log('✅ Пользователь вышел из системы')
-    } catch (error) {
-      console.error('Критическая ошибка выхода:', error)
-    } finally {
-      setIsLoading(false)
-    }
+  const signOut = () => {
+    localStorage.removeItem('auth_token')
+    setUser(null)
+    console.log('✅ Пользователь вышел из системы')
   }
 
-  const updateProfile = async (updates: Partial<Profile>) => {
+  const updateProfile = async (updates: Partial<User>) => {
     if (!user) {
-      return { data: null, error: new Error('Пользователь не авторизован') }
+      return { success: false, error: 'Пользователь не авторизован' }
     }
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id)
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Ошибка обновления профиля:', error)
-        return { data: null, error }
-      }
-
-      setProfile(data)
+      const updatedUser = await AuthService.updateProfile(user.id, updates)
+      setUser(updatedUser)
       console.log('✅ Профиль обновлен')
-      return { data, error: null }
-    } catch (error) {
-      console.error('Критическая ошибка обновления профиля:', error)
-      return { data: null, error }
-    }
-  }
-
-  const refreshProfile = async () => {
-    if (user) {
-      await loadUserProfile(user.id)
+      return { success: true }
+    } catch (error: any) {
+      console.error('Ошибка обновления профиля:', error)
+      return { success: false, error: error.message }
     }
   }
 
   const value: AuthContextType = {
     user,
-    profile,
-    session,
     isLoading,
     signUp,
     signIn,
     signOut,
     updateProfile,
-    refreshProfile
+    isAuthenticated: !!user
   }
 
   return (
