@@ -9,7 +9,7 @@ export const diagnoseDatabaseIssues = async () => {
   try {
     // 1. Проверяем подключение к Supabase
     console.log('1️⃣ Проверяем подключение к Supabase...')
-    const { data: session, error: sessionError } = await supabase.auth.getSession()
+    const { error: sessionError } = await supabase.auth.getSession()
     
     if (sessionError) {
       console.error('❌ Ошибка подключения к Supabase:', sessionError.message)
@@ -20,7 +20,7 @@ export const diagnoseDatabaseIssues = async () => {
     
     // 2. Проверяем существование таблицы profiles
     console.log('2️⃣ Проверяем таблицу profiles...')
-    const { data: profilesTest, error: profilesError } = await supabase
+    const { error: profilesError } = await supabase
       .from('profiles')
       .select('count')
       .limit(1)
