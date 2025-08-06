@@ -128,7 +128,7 @@ const testSupabaseConnection = async () => {
       
       if (data.session) {
         console.log('👤 Пользователь:', data.session.user.email)
-        if (data.session.expires_at) {
+        if (typeof data.session.expires_at !== 'undefined') {
           console.log('🕐 Истекает:', new Date(data.session.expires_at * 1000).toLocaleString())
         }
       }
@@ -162,16 +162,17 @@ const testSupabaseConnection = async () => {
     }
     
   } catch (err) {
-    if (err instanceof Error) {
-      console.error('❌ Критическая ошибка соединения:', err.message)
-      if (err.message.includes('ERR_CONNECTION_RESET')) {
-        console.error('🔄 РЕШЕНИЕ: Перезапустите приложение или проверьте интернет-соединение')
+    if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string') {
+      const message = (err as any).message;
+      console.error('❌ Критическая ошибка соединения:', message);
+      if (message.includes('ERR_CONNECTION_RESET')) {
+        console.error('🔄 РЕШЕНИЕ: Перезапустите приложение или проверьте интернет-соединение');
       }
-      if (err.message.includes('Failed to fetch')) {
-        console.error('🌐 РЕШЕНИЕ: Проверьте доступность supabase.co')
+      if (message.includes('Failed to fetch')) {
+        console.error('🌐 РЕШЕНИЕ: Проверьте доступность supabase.co');
       }
     } else {
-      console.error('❌ Критическая ошибка соединения:', err)
+      console.error('❌ Критическая ошибка соединения:', err);
     }
   }
 }

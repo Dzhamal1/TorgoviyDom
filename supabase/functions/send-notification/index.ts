@@ -1,3 +1,4 @@
+// @ts-ignore
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
@@ -23,7 +24,9 @@ serve(async (req) => {
     const { type, data }: NotificationData = await req.json()
     
     // Получаем переменные окружения
+    // @ts-ignore
     const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')
+    // @ts-ignore
     const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID')
     
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
