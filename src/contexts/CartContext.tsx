@@ -137,18 +137,24 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     // Если пользователь авторизован, сохраняем в Supabase
-    if (user) {
+    if (user && user.id) {
       try {
         await saveCartToSupabase(newItems)
       } catch (error) {
         console.error('❌ Ошибка сохранения в Supabase:', error)
       }
+    } else {
+      // Если пользователь не авторизован, fallback только на localStorage
+      console.log('ℹ️ Пользователь не авторизован, корзина сохраняется только в localStorage')
     }
   }
 
   // Сохранение корзины в Supabase
   const saveCartToSupabase = async (cartItems: CartItem[]) => {
-    if (!user) return
+    if (!user || !user.id) {
+      console.warn('⚠️ Попытка сохранить корзину в Supabase без авторизации!')
+      return
+    }
 
     try {
       // Удаляем старые записи
@@ -169,6 +175,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           quantity: item.quantity
         }))
 
+        console.log('📝 Данные для вставки в Supabase:', supabaseItems)
         const { error } = await supabase
           .from('cart_items')
           .insert(supabaseItems)
