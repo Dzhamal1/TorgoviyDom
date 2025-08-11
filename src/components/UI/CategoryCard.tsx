@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Category } from '../../types';
-import { ArrowRight, Hammer, Zap, Wrench, Droplets, Sofa, Palette, Bolt } from 'lucide-react';
+import { ArrowRight, Hammer, Zap, Wrench, Droplets, Sofa, Palette, Bolt, LucideIcon } from 'lucide-react';
 
 interface CategoryCardProps {
   category: Category;
@@ -9,7 +9,7 @@ interface CategoryCardProps {
 
 // Маппинг категорий к иконкам и цветам
 const getCategoryIcon = (categoryId: string) => {
-  const iconMap = {
+  const iconMap: Record<string, { icon: LucideIcon; color: string; bgColor: string }> = {
     stroy: { icon: Hammer, color: 'bg-orange-500', bgColor: 'bg-orange-50' },
     electrical: { icon: Zap, color: 'bg-yellow-500', bgColor: 'bg-yellow-50' },
     tools: { icon: Wrench, color: 'bg-blue-500', bgColor: 'bg-blue-50' },

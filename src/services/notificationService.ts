@@ -23,53 +23,48 @@ interface OrderNotification {
   totalAmount: number
 }
 
-// Конфигурация EmailJS - ЗАМЕНИТЕ НА ВАШИ ДАННЫЕ
+// Конфигурация EmailJS
 const EMAILJS_CONFIG = {
-  serviceId: 'service_torgoviydom',     // Замените на ваш Service ID
-  templateId: 'template_487wz13',   // Замените на ваш Template ID
-  publicKey: 'f48vPEQq_JdiFiVVk'     // Замените на ваш Public Key
+  serviceId: 'service_torgoviydom',
+  templateId: 'template_313kndr',
+  publicKey: 'f48vPEQq_JdiFiVVk'
 }
 
-// Функция для отправки email через EmailJS
+// Функция для отправки email через Resend (Edge Function)
 const sendEmailNotification = async (type: 'contact' | 'order', data: any) => {
   try {
-    console.log('📧 Отправка email уведомления через EmailJS:', type)
+    console.log('📧 Отправка email уведомления через Resend:', type)
     
-    // Проверяем настройки EmailJS
-    if (!EMAILJS_CONFIG.serviceId || EMAILJS_CONFIG.serviceId === 'service_xxxxxxx') {
-      console.warn('⚠️ EmailJS не настроен. Настройте EMAILJS_CONFIG в notificationService.ts')
-      return { success: false, error: 'EmailJS не настроен' }
-    }
-
-    // Динамически загружаем EmailJS
-    const emailjs = await import('@emailjs/browser')
-    
-    // Формируем данные для отправки
-    const templateParams = {
-      to_email: 'info@td-stroika.ru',
-      from_name: data.name || data.customerName,
-      subject: type === 'order' ? `Новый заказ #${data.orderId}` : 'Новое сообщение с сайта',
-      message: formatEmailMessage(type, data),
-      customer_name: data.name || data.customerName,
-      customer_phone: data.phone || data.customerPhone,
-      customer_email: data.email || data.customerEmail || 'Не указан',
-      order_total: type === 'order' ? `${data.totalAmount}₽` : '',
+    // Добавляем timestamp к данным
+    const emailData = {
+      ...data,
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // Отправляем email
-    const response = await emailjs.send(
-      EMAILJS_CONFIG.serviceId,
-      EMAILJS_CONFIG.templateId,
-      templateParams,
-      EMAILJS_CONFIG.publicKey
-    )
+    // Вызываем Edge Function для отправки email
+    const { data: result, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        type,
+        data: emailData
+      }
+    })
 
-    console.log('✅ Email отправлен успешно:', response.status)
-    return { success: true, response }
-  } catch (error) {
-    console.error('❌ Ошибка отправки email:', error)
-    return { success: false, error: error.message }
+    if (error) {
+      console.error('❌ Ошибка Edge Function send-email:', error)
+      return { success: false, error: error.message }
+    }
+
+    if (result && result.success) {
+      console.log('✅ Email отправлен успешно через Resend')
+      return { success: true, resendId: result.resendId }
+    } else {
+      console.error('❌ Ошибка отправки email:', result?.error)
+      return { success: false, error: result?.error || 'Неизвестная ошибка' }
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('❌ Ошибка отправки email:', message)
+    return { success: false, error: message }
   }
 }
 
@@ -127,9 +122,10 @@ const sendTelegramNotification = async (payload: any) => {
 
     console.log('✅ Telegram уведомление отправлено')
     return { success: true, data }
-  } catch (error) {
-    console.error('❌ Критическая ошибка Telegram:', error)
-    return { success: false, error }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('❌ Критическая ошибка Telegram:', message)
+    return { success: false, error: message }
   }
 }
 
@@ -138,7 +134,7 @@ export const saveContactMessage = async (data: ContactNotification) => {
   try {
     console.log('💾 Обрабатываем сообщение от:', data.name)
     
-    // 1. Сохраняем в базу данных
+    // 1. Пытаемся сохранить в БД (если RLS запрещает — логируем и продолжаем отправки)
     const { data: savedMessage, error: dbError } = await supabase
       .from('contact_messages')
       .insert([
@@ -155,15 +151,14 @@ export const saveContactMessage = async (data: ContactNotification) => {
       .single()
 
     if (dbError) {
-      console.error('❌ Ошибка сохранения сообщения в БД:', dbError)
-      throw new Error(`Ошибка базы данных: ${dbError.message}`)
+      console.warn('⚠️ RLS: Сообщение не сохранено в БД, продолжаем отправку уведомлений:', dbError.message)
+    } else if (savedMessage) {
+      console.log('✅ Сообщение сохранено в БД:', savedMessage.id)
     }
-
-    console.log('✅ Сообщение сохранено в БД:', savedMessage.id)
 
     const messageData = {
       ...data,
-      id: savedMessage.id,
+      id: savedMessage?.id,
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
@@ -183,22 +178,24 @@ export const saveContactMessage = async (data: ContactNotification) => {
       emailSent: emailResult.success,
       telegramSent: telegramResult.success
     }
-  } catch (error) {
-    console.error('❌ Критическая ошибка обработки сообщения:', error)
-    return { success: false, error: { message: error.message } }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('❌ Критическая ошибка обработки сообщения:', message)
+    return { success: false, error: { message } }
   }
 }
 
 // Сохранение заказа
-export const saveOrder = async (data: OrderNotification) => {
+export const saveOrder = async (data: OrderNotification & { userId?: string }) => {
   try {
     console.log('🛒 Обрабатываем заказ от:', data.customerName)
     
-    // 1. Сохраняем заказ в базу данных
+    // 1. Пытаемся сохранить заказ в БД (если RLS запрещает — логируем и продолжаем отправки)
     const { data: savedOrder, error: dbError } = await supabase
       .from('orders')
       .insert([
         {
+          user_id: data.userId || null,
           customer_name: data.customerName,
           customer_phone: data.customerPhone,
           customer_email: data.customerEmail || null,
@@ -212,15 +209,14 @@ export const saveOrder = async (data: OrderNotification) => {
       .single()
 
     if (dbError) {
-      console.error('❌ Ошибка сохранения заказа в БД:', dbError)
-      throw new Error(`Ошибка базы данных: ${dbError.message}`)
+      console.warn('⚠️ RLS: Заказ не сохранен в БД, продолжаем отправку уведомлений:', dbError.message)
+    } else if (savedOrder) {
+      console.log('✅ Заказ сохранен в БД:', savedOrder.id)
     }
-
-    console.log('✅ Заказ сохранен в БД:', savedOrder.id)
 
     const orderData = {
       ...data,
-      orderId: savedOrder.id,
+      orderId: savedOrder?.id || data.orderId,
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
@@ -240,9 +236,10 @@ export const saveOrder = async (data: OrderNotification) => {
       emailSent: emailResult.success,
       telegramSent: telegramResult.success
     }
-  } catch (error) {
-    console.error('❌ Критическая ошибка обработки заказа:', error)
-    return { success: false, error: { message: error.message } }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('❌ Критическая ошибка обработки заказа:', message)
+    return { success: false, error: { message } }
   }
 }
 

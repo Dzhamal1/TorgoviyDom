@@ -11,6 +11,9 @@ import ProductPage from './pages/ProductPage';
 import CartPage from './pages/CartPage';
 import SearchPage from './pages/SearchPage';
 import AdminPage from './pages/AdminPage';
+import OrdersPage from './pages/OrdersPage';
+import ProfilePage from './pages/ProfilePage';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -27,7 +30,13 @@ function App() {
                   <Route path="/product/:productId" element={<ProductPage />} />
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/search" element={<SearchPage />} />
-                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin" element={
+                    <AdminRoute>
+                      <AdminPage />
+                    </AdminRoute>
+                  } />
+                  <Route path="/orders" element={<OrdersPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
                 </Routes>
               </main>
               <Footer />

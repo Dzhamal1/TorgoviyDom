@@ -28,8 +28,9 @@ const fetchWithRetry = async (url: string, retries = 3, delay = 1000): Promise<R
       
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       
-    } catch (error) {
-      console.warn(`❌ Попытка ${i + 1} неудачна:`, error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`❌ Попытка ${i + 1} неудачна:`, message)
       
       if (i === retries - 1) {
         throw error
@@ -65,15 +66,15 @@ export const fetchProductsFromGoogleSheets = async () => {
     
     // Парсинг и валидация полученных данных
     if (data.values) {
-      const products = data.values.map((row: string[], index: number) => ({
-        id: row[0] || `product-${index + 1}`,
-        name: row[1] || 'Товар без названия',
-        description: row[2] || 'Описание отсутствует',
-        price: parseFloat(row[3]) || 0,
-        image: row[4] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMzMzOEZGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iNDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBkPSJNMTcwIDEzMEgxODBWMTcwSDE3MFYxMzBaTTIyMCAxMzBIMjMwVjE3MEgyMjBWMTMwWiIgZmlsbD0id2hpdGUiLz4KPHN2ZyB4PSIxNzUiIHk9IjEzNSIgd2lkdGg9IjUwIiBoZWlnaHQ9IjMwIj4KPHA+CjxwYXRoIGQ9Ik0xMCAxNUwyNSA1TDQwIDE1TDI1IDI1TDEwIDE1WiIgZmlsbD0id2hpdGUiLz4KPC9wPgo8L3N2Zz4KPHRleHQgeD0iMjAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0id2hpdGUiIGZvbnQtd2VpZ2h0PSI1MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPtCi0L7QstCw0YA8L3RleHQ+Cjx0ZXh0IHg9IjIwMCIgeT0iMjIwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+0J7RgtGB0YPRgtGB0YLQstGD0LXRgiDQuNC30L7QsdGA0LDQttC10L3QuNC1PC90ZXh0Pgo8L3N2Zz4=',
-        category: row[5]?.trim() || 'Общие товары', // Нормализация категории
-        inStock: row[6]?.toLowerCase() === 'да' || row[6]?.toLowerCase() === 'true' || row[6] === '1',
-      })).filter(product => product.name !== 'Товар без названия'); // Фильтрация пустых строк
+      const products = (data.values as Array<string[]>).map((row: string[], index: number) => ({
+        id: row?.[0] || `product-${index + 1}`,
+        name: row?.[1] || 'Товар без названия',
+        description: row?.[2] || 'Описание отсутствует',
+        price: parseFloat(row?.[3] || '0') || 0,
+        image: row?.[4] || DEFAULT_PRODUCT_IMAGE,
+        category: (row?.[5] || '').trim() || 'Общие товары',
+        inStock: (row?.[6] || '').toLowerCase() === 'да' || (row?.[6] || '').toLowerCase() === 'true' || row?.[6] === '1',
+      })).filter((product) => product.name !== 'Товар без названия');
       
       console.log('📦 Загружено товаров из Google Sheets:', products.length);
       return products;
@@ -81,12 +82,13 @@ export const fetchProductsFromGoogleSheets = async () => {
     
     console.log('📊 Нет данных в Google Sheets, используем мок-данные');
     return getMockProducts();
-  } catch (error) {
-    console.warn('❌ Не удалось загрузить данные из Google Sheets:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn('❌ Не удалось загрузить данные из Google Sheets:', message);
     
-    if (error.message.includes('ERR_CONNECTION_RESET')) {
+    if (message.includes('ERR_CONNECTION_RESET')) {
       console.log('🔄 Проблема с сетевым соединением, используем мок-данные');
-    } else if (error.message.includes('AbortError')) {
+    } else if (message.includes('AbortError')) {
       console.log('⏱️ Превышено время ожидания, используем мок-данные');
     } else {
       console.log('📊 Используем мок-данные из-за ошибки API');
@@ -97,9 +99,11 @@ export const fetchProductsFromGoogleSheets = async () => {
 };
 
 // Мок-данные для разработки и резервного использования
-const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMzMzOEZGIi8+CjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iNDAiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBkPSJNMTcwIDEzMEgxODBWMTcwSDE3MFYxMzBaTTIyMCAxMzBIMjMwVjE3MEgyMjBWMTMwWiIgZmlsbD0id2hpdGUiLz4KPHN2ZyB4PSIxNzUiIHk9IjEzNSIgd2lkdGg9IjUwIiBoZWlnaHQ9IjMwIj4KPHA+CjxwYXRoIGQ9Ik0xMCAxNUwyNSA1TDQwIDE1TDI1IDI1TDEwIDE1WiIgZmlsbD0id2hpdGUiLz4KPC9wPgo8L3N2Zz4KPHRleHQgeD0iMjAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0id2hpdGUiIGZvbnQtd2VpZ2h0PSI1MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPtCi0L7QstCw0YA8L3RleHQ+Cjx0ZXh0IHg9IjIwMCIgeT0iMjIwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuOCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+0J7RgtGB0YPRgtGB0YLQstGD0LXRgiDQuNC30L7QsdGA0LDQttC10L3QuNC1PC90ZXh0Pgo8L3N2Zz4=';
+const DEFAULT_PRODUCT_IMAGE: string = '/product-placeholder.svg';
 
-export const getMockProducts = () => [
+export const getMockProducts = (): Array<{
+  id: string; name: string; description: string; price: number; image: string; category: string; inStock: boolean;
+}> => [
   {
     id: '1',
     name: 'Цемент М400 50кг',

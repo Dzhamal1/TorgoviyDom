@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Menu, X, Phone, MessageCircle, User, LogOut, Settings, ChevronDown } from 'lucide-react';
-import { useApp } from '../../contexts/AppContext';
+import { Search, ShoppingCart, Menu, X, Phone, User, LogOut, Settings, ChevronDown } from 'lucide-react';
+// import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import AuthModal from '../Auth/AuthModal';
@@ -11,7 +11,7 @@ const Header: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { state } = useApp();
+  // const { state } = useApp();
   const { user, profile, signOut } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
@@ -25,8 +25,13 @@ const Header: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    setUserMenuOpen(false);
+    try {
+      await signOut();
+    } finally {
+      setUserMenuOpen(false);
+      // Хард-редирект для гарантии сброса стейта роутера
+      navigate('/', { replace: true });
+    }
   };
 
   const categories = [
@@ -96,7 +101,7 @@ const Header: React.FC = () => {
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors px-2 py-2 rounded-lg hover:bg-gray-50"
                 >
-                  <div className="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                  <div className="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center text-base font-medium">
                     {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                   </div>
                   <div className="hidden md:block text-left">
@@ -114,7 +119,7 @@ const Header: React.FC = () => {
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border z-20">
                       <div className="p-4 border-b bg-gray-50 rounded-t-lg">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                          <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-base font-medium">
                             {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                           </div>
                           <div className="flex-1 min-w-0">

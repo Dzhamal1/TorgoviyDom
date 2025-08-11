@@ -5,14 +5,9 @@ import {
   ArrowLeft, 
   Users, 
   ShoppingCart, 
-  Package, 
   MessageSquare, 
   TrendingUp, 
-  Download,
   Search,
-  Filter,
-  Eye,
-  Trash2,
   CheckCircle,
   XCircle
 } from 'lucide-react'
@@ -90,7 +85,7 @@ const AdminPage: React.FC = () => {
       const [usersCount, ordersCount, messagesCount] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('orders').select('id, total_amount', { count: 'exact' }),
-        supabase.from('contact_messages').select('id').eq('status', 'new').select('id', { count: 'exact', head: true })
+        supabase.from('contact_messages').select('id', { count: 'exact', head: true }).eq('status', 'new')
       ])
 
       const totalRevenue = ordersCount.data?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0

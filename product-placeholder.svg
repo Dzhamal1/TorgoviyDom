@@ -1,18 +1,24 @@
-<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Синий фон -->
-  <rect width="400" height="300" fill="#3338FF"/>
-  
-  <!-- Декоративный круг -->
-  <circle cx="200" cy="150" r="40" fill="white" fill-opacity="0.2"/>
-  
-  <!-- Иконка товара (стилизованная коробка) -->
-  <rect x="170" y="130" width="10" height="40" fill="white"/>
-  <rect x="220" y="130" width="10" height="40" fill="white"/>
-  <polygon points="175,135 225,135 225,165 175,165" fill="white" fill-opacity="0.7"/>
-  
-  <!-- Текст "Товар" -->
-  <text x="200" y="200" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="500" text-anchor="middle">Товар</text>
-  
-  <!-- Подпись "Отсутствует изображение" -->
-  <text x="200" y="220" font-family="Arial, sans-serif" font-size="12" fill="white" fill-opacity="0.8" text-anchor="middle">Отсутствует изображение</text>
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#g)"/>
+  <g opacity="0.15">
+    <circle cx="70" cy="60" r="30" fill="#fff"/>
+    <circle cx="350" cy="220" r="50" fill="#fff"/>
+    <circle cx="320" cy="80" r="18" fill="#fff"/>
+  </g>
+  <g transform="translate(80,70)">
+    <rect x="0" y="0" width="240" height="160" rx="12" fill="#fff" opacity="0.12"/>
+    <rect x="14" y="14" width="212" height="132" rx="8" fill="#fff" opacity="0.18"/>
+    <path d="M26 130 L86 74 L132 112 L160 92 L212 130" stroke="#fff" stroke-width="4" opacity="0.5" fill="none"/>
+    <circle cx="64" cy="88" r="14" fill="#fff" opacity="0.5"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="'Inter', Arial, sans-serif">
+    <text x="200" y="210" font-size="16" font-weight="700" opacity="0.95">Изображение скоро появится</text>
+    <text x="200" y="232" font-size="12" opacity="0.85">Качественная заглушка для карточки товара</text>
+  </g>
 </svg>

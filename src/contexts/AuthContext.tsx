@@ -8,6 +8,7 @@ interface AuthContextType {
   profile: Profile | null
   session: Session | null
   isLoading: boolean
+  isAdmin: boolean
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ data: any; error: any }>
   signIn: (email: string, password: string) => Promise<{ data: any; error: any }>
   signOut: () => Promise<void>
@@ -57,7 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getSession()
 
     // Слушаем изменения аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Изменение состояния аутентификации:', event)
         
@@ -74,23 +75,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      try { authListener.subscription?.unsubscribe() } catch {}
+    }
   }, [])
 
   const loadUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('Профиль не найден, будет создан автоматически')
+      if (error || status === 406 || !data) {
+        // Профиль не найден или сервер вернул 406 — создаем/обновляем профиль
+        console.log('Профиль не найден, создаем/обновляем профиль...')
+        const fullName = (user?.user_metadata as any)?.full_name || user?.email?.split('@')[0] || 'Пользователь'
+        const phone = (user?.user_metadata as any)?.phone || null
+
+        const { data: upserted, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: userId,
+            email: user?.email || '',
+            full_name: fullName,
+            phone: phone,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' })
+          .select()
+          .single()
+
+        if (upsertError) {
+          console.error('Ошибка создания/обновления профиля:', upsertError)
           return
         }
-        console.error('Ошибка загрузки профиля:', error)
+
+        setProfile(upserted)
+        console.log('✅ Профиль создан/обновлен')
         return
       }
 
@@ -163,12 +185,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (error) {
         console.error('Ошибка выхода:', error)
+        // Жесткая очистка локального состояния, даже если SDK вернул ошибку
+        setUser(null)
+        setProfile(null)
+        setSession(null)
+        localStorage.removeItem('cart')
         return
       }
 
       setUser(null)
       setProfile(null)
       setSession(null)
+      localStorage.removeItem('cart')
       
       console.log('✅ Пользователь вышел из системы')
     } catch (error) {
@@ -214,11 +242,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  // Вычисляем, является ли пользователь администратором
+  const isAdmin = profile?.is_admin === true
+
   const value: AuthContextType = {
     user,
     profile,
     session,
     isLoading,
+    isAdmin,
     signUp,
     signIn,
     signOut,

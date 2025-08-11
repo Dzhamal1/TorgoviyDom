@@ -26,6 +26,16 @@ export interface ContactFormData {
   preferredContact: 'phone' | 'whatsapp' | 'telegram';
 }
 
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  phone?: string;
+  is_admin?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface OrderData {
   items: CartItem[];
   total: number;

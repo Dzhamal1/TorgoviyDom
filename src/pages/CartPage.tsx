@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, CreditCard, Package } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
 import { saveOrder } from '../services/notificationService';
 
 const CartPage: React.FC = () => {
   const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart();
+  const { user } = useAuth();
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
@@ -13,7 +15,8 @@ const CartPage: React.FC = () => {
     address: '',
   });
   const [isOrdering, setIsOrdering] = useState(false);
-  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState<null | 'success' | 'error'>(null);
+  const navigate = useNavigate();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ru-RU', {
@@ -56,6 +59,7 @@ const CartPage: React.FC = () => {
         quantity: item.quantity
       })),
       totalAmount: totalPrice,
+      userId: user?.id,
     };
 
     console.log('📦 Данные заказа подготовлены:', orderData.orderId)
@@ -68,51 +72,43 @@ const CartPage: React.FC = () => {
       if (result.success) {
         console.log('✅ Заказ успешно обработан')
         clearCart();
-        setOrderPlaced(true);
+        setOrderPlaced('success');
+        setTimeout(() => {
+          navigate('/orders', { replace: true });
+        }, 1500);
       } else {
         console.error('❌ Ошибка обработки заказа:', result.error)
-        alert(`Ошибка при оформлении заказа: ${result.error?.message || 'Неизвестная ошибка'}. Попробуйте еще раз.`);
+        setOrderPlaced('error');
       }
     } catch (error) {
       console.error('Error submitting order:', error);
-      alert(`Критическая ошибка: ${error.message}. Попробуйте еще раз или свяжитесь с нами по телефону.`);
+      setOrderPlaced('error');
     } finally {
       console.log('🏁 Завершение обработки заказа')
       setIsOrdering(false);
     }
   };
 
-  // Если заказ оформлен
-  if (orderPlaced) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="text-green-600 mb-6">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Package size={32} />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Заказ оформлен!</h1>
-          <p className="text-gray-600 mb-6">
-            Спасибо за заказ! Мы свяжемся с вами в ближайшее время для подтверждения.
-          </p>
-          <div className="space-y-3">
-            <Link
-              to="/"
-              className="block w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Продолжить покупки
-            </Link>
-            <Link
-              to="/search"
-              className="block w-full border border-gray-300 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Посмотреть каталог
-            </Link>
+  const renderOrderToast = () => {
+    if (orderPlaced === 'success') {
+      return (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg animate-[fadeIn_0.2s_ease-out]">
+            Заказ успешно оформлен! Перенаправляем к вашим заказам...
           </div>
         </div>
-      </div>
-    );
+      )
+    }
+    if (orderPlaced === 'error') {
+      return (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg animate-[fadeIn_0.2s_ease-out]">
+            Не удалось оформить заказ. Попробуйте еще раз.
+          </div>
+        </div>
+      )
+    }
+    return null
   }
 
   // Если корзина пуста
@@ -159,6 +155,7 @@ const CartPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {renderOrderToast()}
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center space-x-2 mb-8">
           <Link to="/" className="text-blue-600 hover:text-blue-800">

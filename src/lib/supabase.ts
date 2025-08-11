@@ -20,8 +20,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('VITE_SUPABASE_URL=https://your-project.supabase.co')
   console.error('VITE_SUPABASE_ANON_KEY=your-anon-key-here')
   
-  // Создаем заглушку для предотвращения критических ошибок
-  throw new Error('Supabase не настроен. Проверьте файл .env')
+  // Выбрасываем ошибку вместо создания заглушки
+  throw new Error('Supabase не настроен. Создайте файл .env с переменными VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY')
 }
 
 // Создаем клиент Supabase с оптимальными настройками
@@ -67,15 +67,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // Настройки fetch с обработкой ошибок
     fetch: (url, options = {}) => {
       console.log('🌐 Supabase запрос:', url)
-      
+
+      // ВАЖНО: сохраняем все заголовки, которые добавляет supabase-js (apikey, authorization и др.)
+      // options.headers может быть как обычным объектом, так и экземпляром Headers — используем безопасное объединение
+      const mergedHeaders = new Headers(options && options.headers as HeadersInit)
+      mergedHeaders.set('Connection', 'keep-alive')
+
       return fetch(url, {
         ...options,
         // Увеличиваем таймаут для медленных соединений
         signal: AbortSignal.timeout(15000),
-        headers: {
-          ...options.headers,
-          'Connection': 'keep-alive',
-        }
+        headers: mergedHeaders,
       }).catch(error => {
         console.error('🌐 Ошибка сетевого соединения:', error.message)
         
@@ -101,99 +103,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Функция для безопасного тестирования соединения с детальной диагностикой
-const testSupabaseConnection = async () => {
-  try {
-    console.log('🔄 Тестирование соединения с Supabase...')
-    
-    // Проверяем базовое соединение
-    const { data, error } = await supabase.auth.getSession()
-    
-    if (error) {
-      console.error('❌ Ошибка подключения к Supabase:', error.message)
-      console.error('Код ошибки:', error.status)
-      
-      if (error.message.includes('Invalid API key')) {
-        console.error('🔑 РЕШЕНИЕ: Проверьте правильность VITE_SUPABASE_ANON_KEY в файле .env')
-      }
-      if (error.message.includes('Invalid URL')) {
-        console.error('🌐 РЕШЕНИЕ: Проверьте правильность VITE_SUPABASE_URL в файле .env')
-      }
-      if (error.status === 401) {
-        console.error('🔐 РЕШЕНИЕ: Проверьте настройки аутентификации в Supabase Dashboard')
-      }
-    } else {
-      console.log('✅ Успешное подключение к Supabase')
-      console.log('Текущая сессия:', data.session ? 'Активна' : 'Отсутствует')
-      
-      if (data.session) {
-        console.log('👤 Пользователь:', data.session.user.email)
-        console.log('🕐 Истекает:', new Date(data.session.expires_at * 1000).toLocaleString())
-      }
-    }
-    
-    // Проверяем доступность таблиц
-    console.log('🔄 Проверяем доступность таблиц...')
-    
-    const { data: profilesTest, error: profilesError } = await supabase
-      .from('profiles')
-      .select('count')
-      .limit(1)
-    
-    if (profilesError) {
-      console.error('❌ Таблица profiles недоступна:', profilesError.message)
-      console.error('🔧 РЕШЕНИЕ: Выполните SQL миграции из DATABASE_SETUP.md')
-    } else {
-      console.log('✅ Таблица profiles доступна')
-    }
-    
-    const { data: cartTest, error: cartError } = await supabase
-      .from('cart_items')
-      .select('count')
-      .limit(1)
-    
-    if (cartError) {
-      console.error('❌ Таблица cart_items недоступна:', cartError.message)
-      console.error('🔧 РЕШЕНИЕ: Выполните SQL миграции из DATABASE_SETUP.md')
-    } else {
-      console.log('✅ Таблица cart_items доступна')
-    }
-    
-  } catch (err) {
-    console.error('❌ Критическая ошибка соединения:', err.message)
-    
-    if (err.message.includes('ERR_CONNECTION_RESET')) {
-      console.error('🔄 РЕШЕНИЕ: Перезапустите приложение или проверьте интернет-соединение')
-    }
-    if (err.message.includes('Failed to fetch')) {
-      console.error('🌐 РЕШЕНИЕ: Проверьте доступность supabase.co')
-    }
-  }
-}
-
-// Тестируем соединение с задержкой для избежания блокировки загрузки
-// Отключаем автоматическое тестирование в продакшене для уменьшения логов
-if (import.meta.env.DEV) {
-  setTimeout(async () => {
-    await testSupabaseConnection()
-    
-    // Проверяем таблицы только если есть подключение
-    try {
-      const { verifyDatabaseTables } = await import('./database-setup')
-      const { diagnoseDatabaseIssues } = await import('./database-diagnostics')
-      
-      await verifyDatabaseTables()
-      
-      // Дополнительная диагностика при проблемах
-      setTimeout(async () => {
-        await diagnoseDatabaseIssues()
-      }, 3000)
-      
-    } catch (error) {
-      console.error('❌ Ошибка проверки таблиц:', error)
-    }
-  }, 2000)
-}
+// Тестирование перенесено в simple-test.ts
 
 // Типы для базы данных
 export interface Profile {
@@ -201,6 +111,7 @@ export interface Profile {
   email: string
   full_name: string
   phone?: string
+  is_admin?: boolean
   created_at: string
   updated_at: string
 }

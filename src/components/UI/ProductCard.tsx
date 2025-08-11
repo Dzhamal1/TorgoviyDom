@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Eye, Plus, Minus, Check, Package } from 'lucide-react';
+import { ShoppingCart, Eye, Plus, Minus, Check } from 'lucide-react';
 import { Product } from '../../types';
 import { useCart } from '../../contexts/CartContext';
 
@@ -106,9 +106,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             />
           ) : (
-            <div className="text-gray-400">
-              <Package size={48} />
-            </div>
+            <img
+              src="/product-placeholder.svg"
+              alt="Нет изображения"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
           )}
           
           {!product.inStock && (

@@ -61,7 +61,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('❌ Ошибка загрузки корзины:', error)
-      loadCartFromLocalStorage() // Fallback к localStorage
+      // Fallback к localStorage при любой ошибке
+      loadCartFromLocalStorage()
     } finally {
       setIsLoading(false)
     }
@@ -79,6 +80,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('❌ Ошибка загрузки корзины из Supabase:', error)
+        // Fallback к localStorage при ошибке
+        loadCartFromLocalStorage()
         return
       }
 
@@ -103,9 +106,31 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Синхронизируем с localStorage
         localStorage.setItem('cart', JSON.stringify(cartItems))
+      } else {
+        // Если в Supabase нет данных, пробуем загрузить из localStorage и синхронизировать в БД
+        try {
+          const savedCart = localStorage.getItem('cart')
+          if (savedCart) {
+            const parsedCart = JSON.parse(savedCart)
+            const cartWithDates = parsedCart.map((item: any) => ({
+              ...item,
+              addedAt: new Date(item.addedAt)
+            }))
+            setItems(cartWithDates)
+            console.log('✅ Локальная корзина найдена. Синхронизируем в Supabase...')
+            await saveCartToSupabase(cartWithDates)
+          } else {
+            setItems([])
+          }
+        } catch (e) {
+          console.error('❌ Ошибка синхронизации локальной корзины:', e)
+          loadCartFromLocalStorage()
+        }
       }
     } catch (error) {
       console.error('❌ Критическая ошибка загрузки из Supabase:', error)
+      // Fallback к localStorage при любой ошибке
+      loadCartFromLocalStorage()
     }
   }
 
@@ -143,6 +168,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await saveCartToSupabase(newItems)
       } catch (error) {
         console.error('❌ Ошибка сохранения в Supabase:', error)
+        // Не прерываем работу при ошибке Supabase
       }
     }
   }
@@ -160,7 +186,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (deleteError) {
         console.error('❌ Ошибка удаления старых записей:', deleteError)
-        return
+        // Продолжаем работу, даже если удаление не удалось
       }
 
       // Добавляем новые записи
@@ -181,12 +207,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (error) {
           console.error('❌ Ошибка сохранения в Supabase:', error)
+          // Не прерываем работу при ошибке сохранения
         } else {
           console.log('✅ Корзина сохранена в Supabase:', cartItems.length, 'товаров')
         }
       }
     } catch (error) {
       console.error('❌ Критическая ошибка сохранения в Supabase:', error)
+      // Не прерываем работу при критических ошибках
     }
   }
 
@@ -200,7 +228,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (existingItemIndex >= 0) {
         // Увеличиваем количество существующего товара
-        newItems[existingItemIndex].quantity += quantity
+        const existingItem = newItems[existingItemIndex]
+        if (existingItem) {
+          newItems[existingItemIndex] = {
+            ...existingItem,
+            quantity: existingItem.quantity + quantity
+          }
+        }
       } else {
         // Добавляем новый товар
         const newItem: CartItem = {
@@ -213,12 +247,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       setItems(newItems)
-      await saveCart(newItems)
       
-      console.log('✅ Товар добавлен в корзину:', product.name, 'x', quantity)
+      // Сохраняем корзину (может не удаться, но не прерываем работу)
+      try {
+        await saveCart(newItems)
+        console.log('✅ Товар добавлен в корзину:', product.name, 'x', quantity)
+      } catch (saveError) {
+        console.error('❌ Ошибка сохранения корзины:', saveError)
+        // Не прерываем работу при ошибке сохранения
+        console.log('✅ Товар добавлен в корзину (локально):', product.name, 'x', quantity)
+      }
     } catch (error) {
       console.error('❌ Ошибка добавления товара в корзину:', error)
-      throw error
+      // Не выбрасываем ошибку, чтобы не блокировать интерфейс
     } finally {
       setIsLoading(false)
     }
