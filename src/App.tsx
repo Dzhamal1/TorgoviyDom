@@ -13,6 +13,7 @@ import SearchPage from './pages/SearchPage';
 import AdminPage from './pages/AdminPage';
 import OrdersPage from './pages/OrdersPage';
 import ProfilePage from './pages/ProfilePage';
+import PartnersPage from './pages/PartnersPage';
 import AdminRoute from './components/AdminRoute';
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
                   } />
                   <Route path="/orders" element={<OrdersPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/partners" element={<PartnersPage />} />
                 </Routes>
               </main>
               <Footer />

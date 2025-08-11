@@ -64,21 +64,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'X-Client-Info': 'construction-store-app',
     },
-    // Настройки fetch с обработкой ошибок
-    fetch: (url, options = {}) => {
+    // Настройки fetch с обработкой ошибок (не переопределяем заголовки SDK)
+    fetch: (url, options: RequestInit = {}) => {
       console.log('🌐 Supabase запрос:', url)
 
-      // ВАЖНО: сохраняем все заголовки, которые добавляет supabase-js (apikey, authorization и др.)
-      // options.headers может быть как обычным объектом, так и экземпляром Headers — используем безопасное объединение
-      const mergedHeaders = new Headers(options && options.headers as HeadersInit)
-      mergedHeaders.set('Connection', 'keep-alive')
+      // Кроссбраузерный таймаут без изменения заголовков, которые ставит SDK
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      const opts: RequestInit = { ...options, signal: controller.signal }
 
-      return fetch(url, {
-        ...options,
-        // Увеличиваем таймаут для медленных соединений
-        signal: AbortSignal.timeout(15000),
-        headers: mergedHeaders,
-      }).catch(error => {
+      return fetch(url, opts)
+        .finally(() => clearTimeout(timeoutId))
+        .catch((error: any) => {
         console.error('🌐 Ошибка сетевого соединения:', error.message)
         
         if (error.name === 'AbortError') {

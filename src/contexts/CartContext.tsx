@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { Product } from '../types'
 import { useAuth } from './AuthContext'
@@ -28,7 +27,6 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
-// Хук для использования корзины
 export const useCart = () => {
   const context = useContext(CartContext)
   if (!context) {
@@ -37,54 +35,43 @@ export const useCart = () => {
   return context
 }
 
-// Провайдер корзины
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { user } = useAuth()
 
-  // Загрузка корзины при инициализации
   useEffect(() => {
     loadCart()
   }, [user])
 
-  // Загрузка корзины из Supabase или localStorage
   const loadCart = async () => {
     setIsLoading(true)
     try {
       if (user) {
-        console.log('🔄 Загружаем корзину из Supabase для пользователя:', user.email)
         await loadCartFromSupabase()
       } else {
-        console.log('🔄 Загружаем корзину из localStorage (гость)')
         loadCartFromLocalStorage()
       }
     } catch (error) {
       console.error('❌ Ошибка загрузки корзины:', error)
-      // Fallback к localStorage при любой ошибке
       loadCartFromLocalStorage()
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Загрузка корзины из Supabase
   const loadCartFromSupabase = async () => {
     if (!user) return
-
     try {
       const { data, error } = await supabase
         .from('cart_items')
         .select('*')
         .eq('user_id', user.id)
-
       if (error) {
         console.error('❌ Ошибка загрузки корзины из Supabase:', error)
-        // Fallback к localStorage при ошибке
         loadCartFromLocalStorage()
         return
       }
-
       if (data && data.length > 0) {
         const cartItems: CartItem[] = data.map(item => ({
           id: item.id,
@@ -100,41 +87,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           quantity: item.quantity,
           addedAt: new Date(item.created_at)
         }))
-
         setItems(cartItems)
-        console.log('✅ Корзина загружена из Supabase:', cartItems.length, 'товаров')
-        
-        // Синхронизируем с localStorage
         localStorage.setItem('cart', JSON.stringify(cartItems))
       } else {
-        // Если в Supabase нет данных, пробуем загрузить из localStorage и синхронизировать в БД
-        try {
-          const savedCart = localStorage.getItem('cart')
-          if (savedCart) {
-            const parsedCart = JSON.parse(savedCart)
-            const cartWithDates = parsedCart.map((item: any) => ({
-              ...item,
-              addedAt: new Date(item.addedAt)
-            }))
-            setItems(cartWithDates)
-            console.log('✅ Локальная корзина найдена. Синхронизируем в Supabase...')
-            await saveCartToSupabase(cartWithDates)
-          } else {
-            setItems([])
-          }
-        } catch (e) {
-          console.error('❌ Ошибка синхронизации локальной корзины:', e)
-          loadCartFromLocalStorage()
-        }
+        loadCartFromLocalStorage()
       }
     } catch (error) {
       console.error('❌ Критическая ошибка загрузки из Supabase:', error)
-      // Fallback к localStorage при любой ошибке
       loadCartFromLocalStorage()
     }
   }
 
-  // Загрузка корзины из localStorage
   const loadCartFromLocalStorage = () => {
     try {
       const savedCart = localStorage.getItem('cart')
@@ -145,7 +108,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           addedAt: new Date(item.addedAt)
         }))
         setItems(cartWithDates)
-        console.log('✅ Корзина загружена из localStorage:', cartWithDates.length, 'товаров')
       }
     } catch (error) {
       console.error('❌ Ошибка загрузки корзины из localStorage:', error)
@@ -153,43 +115,25 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
-  // Сохранение корзины
   const saveCart = async (newItems: CartItem[]) => {
-    // Всегда сохраняем в localStorage
     try {
       localStorage.setItem('cart', JSON.stringify(newItems))
     } catch (error) {
       console.error('❌ Ошибка сохранения в localStorage:', error)
     }
-
-    // Если пользователь авторизован, сохраняем в Supabase
     if (user) {
       try {
         await saveCartToSupabase(newItems)
       } catch (error) {
         console.error('❌ Ошибка сохранения в Supabase:', error)
-        // Не прерываем работу при ошибке Supabase
       }
     }
   }
 
-  // Сохранение корзины в Supabase
   const saveCartToSupabase = async (cartItems: CartItem[]) => {
     if (!user) return
-
     try {
-      // Удаляем старые записи
-      const { error: deleteError } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (deleteError) {
-        console.error('❌ Ошибка удаления старых записей:', deleteError)
-        // Продолжаем работу, даже если удаление не удалось
-      }
-
-      // Добавляем новые записи
+      await supabase.from('cart_items').delete().eq('user_id', user.id)
       if (cartItems.length > 0) {
         const supabaseItems = cartItems.map(item => ({
           user_id: user.id,
@@ -200,120 +144,73 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           product_category: item.product.category,
           quantity: item.quantity
         }))
-
-        const { error } = await supabase
-          .from('cart_items')
-          .insert(supabaseItems)
-
+        const { error } = await supabase.from('cart_items').insert(supabaseItems)
         if (error) {
           console.error('❌ Ошибка сохранения в Supabase:', error)
-          // Не прерываем работу при ошибке сохранения
-        } else {
-          console.log('✅ Корзина сохранена в Supabase:', cartItems.length, 'товаров')
         }
       }
     } catch (error) {
       console.error('❌ Критическая ошибка сохранения в Supabase:', error)
-      // Не прерываем работу при критических ошибках
     }
   }
 
-  // Добавление товара в корзину
   const addItem = async (product: Product, quantity = 1): Promise<void> => {
     setIsLoading(true)
-    
     try {
       const newItems = [...items]
-      const existingItemIndex = newItems.findIndex(item => item.product.id === product.id)
-      
-      if (existingItemIndex >= 0) {
-        // Увеличиваем количество существующего товара
-        const existingItem = newItems[existingItemIndex]
-        if (existingItem) {
-          newItems[existingItemIndex] = {
-            ...existingItem,
-            quantity: existingItem.quantity + quantity
-          }
-        }
-      } else {
-        // Добавляем новый товар
-        const newItem: CartItem = {
-          id: `${product.id}-${Date.now()}`,
-          product,
-          quantity,
-          addedAt: new Date()
-        }
-        newItems.push(newItem)
+      const existingIndex = newItems.findIndex(i => i.product.id === product.id)
+    if (existingIndex >= 0) {
+      const current = newItems[existingIndex] as CartItem
+      newItems[existingIndex] = {
+        id: current.id,
+        product: current.product,
+        addedAt: current.addedAt,
+        quantity: current.quantity + quantity
       }
-      
+    } else {
+        newItems.push({ id: `${product.id}-${Date.now()}`, product, quantity, addedAt: new Date() })
+      }
       setItems(newItems)
-      
-      // Сохраняем корзину (может не удаться, но не прерываем работу)
-      try {
-        await saveCart(newItems)
-        console.log('✅ Товар добавлен в корзину:', product.name, 'x', quantity)
-      } catch (saveError) {
-        console.error('❌ Ошибка сохранения корзины:', saveError)
-        // Не прерываем работу при ошибке сохранения
-        console.log('✅ Товар добавлен в корзину (локально):', product.name, 'x', quantity)
-      }
+      await saveCart(newItems)
     } catch (error) {
       console.error('❌ Ошибка добавления товара в корзину:', error)
-      // Не выбрасываем ошибку, чтобы не блокировать интерфейс
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Удаление товара из корзины
   const removeItem = async (productId: string): Promise<void> => {
-    const newItems = items.filter(item => item.product.id !== productId)
+    const newItems = items.filter(i => i.product.id !== productId)
     setItems(newItems)
     await saveCart(newItems)
-    console.log('🗑️ Товар удален из корзины:', productId)
   }
 
-  // Обновление количества товара
   const updateQuantity = async (productId: string, quantity: number): Promise<void> => {
     if (quantity <= 0) {
       await removeItem(productId)
       return
     }
-
-    const newItems = items.map(item =>
-      item.product.id === productId
-        ? { ...item, quantity }
-        : item
-    )
-    
+    const newItems = items.map(i => (i.product.id === productId ? { ...i, quantity } : i))
     setItems(newItems)
     await saveCart(newItems)
-    console.log('🔄 Количество товара обновлено:', productId, 'на', quantity)
   }
 
-  // Очистка корзины
   const clearCart = async (): Promise<void> => {
     setItems([])
     await saveCart([])
-    console.log('🧹 Корзина очищена')
   }
 
-  // Получение количества конкретного товара в корзине
   const getItemQuantity = (productId: string): number => {
-    const item = items.find(item => item.product.id === productId)
+    const item = items.find(i => i.product.id === productId)
     return item ? item.quantity : 0
   }
 
-  // Синхронизация корзины
   const syncCart = async (): Promise<void> => {
     await loadCart()
   }
 
-  // Вычисление общего количества товаров
   const totalItems = items.reduce((total, item) => total + item.quantity, 0)
-
-  // Вычисление общей стоимости
-  const totalPrice = items.reduce((total, item) => total + (item.product.price * item.quantity), 0)
+  const totalPrice = items.reduce((total, item) => total + item.product.price * item.quantity, 0)
 
   const value: CartContextType = {
     items,
@@ -328,9 +225,5 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     syncCart
   }
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  )
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }

@@ -23,12 +23,7 @@ interface OrderNotification {
   totalAmount: number
 }
 
-// Конфигурация EmailJS
-const EMAILJS_CONFIG = {
-  serviceId: 'service_torgoviydom',
-  templateId: 'template_313kndr',
-  publicKey: 'f48vPEQq_JdiFiVVk'
-}
+// EmailJS больше не используется; отправка через Edge Function/Resend
 
 // Функция для отправки email через Resend (Edge Function)
 const sendEmailNotification = async (type: 'contact' | 'order', data: any) => {
@@ -68,42 +63,14 @@ const sendEmailNotification = async (type: 'contact' | 'order', data: any) => {
   }
 }
 
-// Форматирование сообщения для email
-const formatEmailMessage = (type: 'contact' | 'order', data: any): string => {
-  if (type === 'contact') {
-    return `
-Новое сообщение с сайта "Торговый дом Все для стройки"
+// Форматирование перенесено в Edge Function (send-email)
 
-👤 Имя: ${data.name}
-📞 Телефон: ${data.phone}
-📧 Email: ${data.email || 'Не указан'}
-💬 Сообщение: ${data.message}
-📱 Предпочтительная связь: ${getContactMethod(data.preferredContact)}
-🕐 Время: ${new Date().toLocaleString('ru-RU')}
-    `.trim()
-  } else {
-    const itemsList = data.items.map((item: any) => 
-      `• ${item.name} - ${item.quantity} шт. × ${item.price}₽ = ${item.quantity * item.price}₽`
-    ).join('\n')
-
-    return `
-🛒 Новый заказ #${data.orderId}
-
-👤 Покупатель: ${data.customerName}
-📞 Телефон: ${data.customerPhone}
-📧 Email: ${data.customerEmail || 'Не указан'}
-📍 Адрес доставки: ${data.customerAddress}
-
-📦 Товары:
-${itemsList}
-
-💰 Общая сумма: ${data.totalAmount}₽
-🕐 Время заказа: ${new Date().toLocaleString('ru-RU')}
-
----
-Заказ получен через сайт "Торговый дом Все для стройки"
-    `.trim()
-  }
+// Простая обертка таймаута
+const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T | { timeout: true }> => {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve({ timeout: true } as const), ms)) as Promise<{ timeout: true }>
+  ])
 }
 
 // Функция для отправки в Telegram через Edge Function
@@ -134,7 +101,7 @@ export const saveContactMessage = async (data: ContactNotification) => {
   try {
     console.log('💾 Обрабатываем сообщение от:', data.name)
     
-    // 1. Пытаемся сохранить в БД (если RLS запрещает — логируем и продолжаем отправки)
+    // 1. Сохраняем в БД
     const { data: savedMessage, error: dbError } = await supabase
       .from('contact_messages')
       .insert([
@@ -151,10 +118,10 @@ export const saveContactMessage = async (data: ContactNotification) => {
       .single()
 
     if (dbError) {
-      console.warn('⚠️ RLS: Сообщение не сохранено в БД, продолжаем отправку уведомлений:', dbError.message)
-    } else if (savedMessage) {
-      console.log('✅ Сообщение сохранено в БД:', savedMessage.id)
+      console.error('❌ Ошибка сохранения сообщения в БД:', dbError)
+      return { success: false, error: { message: dbError.message } }
     }
+    console.log('✅ Сообщение сохранено в БД:', savedMessage?.id)
 
     const messageData = {
       ...data,
@@ -162,21 +129,19 @@ export const saveContactMessage = async (data: ContactNotification) => {
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // 2. Отправляем email уведомление
-    const emailResult = await sendEmailNotification('contact', messageData)
-    
-    // 3. Отправляем в Telegram
-    const telegramResult = await sendTelegramNotification({
-      type: 'contact',
-      data: messageData
-    })
+    // 2. Отправляем уведомления с ограничением по времени
+    const emailResult = await withTimeout(sendEmailNotification('contact', messageData), 4000)
+    const telegramResult = await withTimeout(
+      sendTelegramNotification({ type: 'contact', data: messageData }),
+      4000
+    )
 
     console.log('✅ Сообщение полностью обработано')
     return { 
       success: true, 
-      data: savedMessage,
-      emailSent: emailResult.success,
-      telegramSent: telegramResult.success
+      data: savedMessage || null,
+      emailSent: (emailResult as any)?.success === true,
+      telegramSent: (telegramResult as any)?.success === true
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
@@ -190,12 +155,12 @@ export const saveOrder = async (data: OrderNotification & { userId?: string }) =
   try {
     console.log('🛒 Обрабатываем заказ от:', data.customerName)
     
-    // 1. Пытаемся сохранить заказ в БД (если RLS запрещает — логируем и продолжаем отправки)
+    // 1. Сохраняем заказ в БД
     const { data: savedOrder, error: dbError } = await supabase
       .from('orders')
       .insert([
         {
-          user_id: data.userId || null,
+          user_id: data.userId ?? null,
           customer_name: data.customerName,
           customer_phone: data.customerPhone,
           customer_email: data.customerEmail || null,
@@ -209,10 +174,10 @@ export const saveOrder = async (data: OrderNotification & { userId?: string }) =
       .single()
 
     if (dbError) {
-      console.warn('⚠️ RLS: Заказ не сохранен в БД, продолжаем отправку уведомлений:', dbError.message)
-    } else if (savedOrder) {
-      console.log('✅ Заказ сохранен в БД:', savedOrder.id)
+      console.error('❌ Ошибка сохранения заказа в БД:', dbError)
+      return { success: false, error: { message: dbError.message } }
     }
+    console.log('✅ Заказ сохранен в БД:', savedOrder?.id)
 
     const orderData = {
       ...data,
@@ -220,21 +185,19 @@ export const saveOrder = async (data: OrderNotification & { userId?: string }) =
       timestamp: new Date().toLocaleString('ru-RU')
     }
 
-    // 2. Отправляем email уведомление
-    const emailResult = await sendEmailNotification('order', orderData)
-    
-    // 3. Отправляем в Telegram
-    const telegramResult = await sendTelegramNotification({
-      type: 'order',
-      data: orderData
-    })
+    // 2. Отправляем уведомления с ограничением по времени
+    const emailResult = await withTimeout(sendEmailNotification('order', orderData), 4000)
+    const telegramResult = await withTimeout(
+      sendTelegramNotification({ type: 'order', data: orderData }),
+      4000
+    )
 
     console.log('✅ Заказ полностью обработан')
     return { 
       success: true, 
-      data: savedOrder,
-      emailSent: emailResult.success,
-      telegramSent: telegramResult.success
+      data: savedOrder || null,
+      emailSent: (emailResult as any)?.success === true,
+      telegramSent: (telegramResult as any)?.success === true
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
@@ -244,14 +207,7 @@ export const saveOrder = async (data: OrderNotification & { userId?: string }) =
 }
 
 // Вспомогательная функция для форматирования способа связи
-function getContactMethod(method: string): string {
-  switch (method) {
-    case 'phone': return '📞 Телефон'
-    case 'whatsapp': return '💚 WhatsApp'
-    case 'telegram': return '💙 Telegram'
-    default: return method
-  }
-}
+// getContactMethod использовалась только для форматирования email, сейчас не требуется
 
 // Получение статистики для админки
 export const getNotificationStats = async () => {

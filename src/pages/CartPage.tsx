@@ -65,7 +65,11 @@ const CartPage: React.FC = () => {
     console.log('📦 Данные заказа подготовлены:', orderData.orderId)
 
     try {
-      const result = await saveOrder(orderData);
+      // Fix: Only include userId if it is defined, to match the expected type
+      const { userId, ...restOrderData } = orderData;
+      const result = await saveOrder(
+        userId ? { ...restOrderData, userId } : restOrderData
+      );
       
       console.log('📋 Результат сохранения заказа:', result)
       
