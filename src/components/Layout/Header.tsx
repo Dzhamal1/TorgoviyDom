@@ -5,11 +5,13 @@ import { Search, ShoppingCart, Menu, X, Phone, User, LogOut, Settings, ChevronDo
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import AuthModal from '../Auth/AuthModal';
+import UserProfile from '../UserProfile/UserProfile'; // Assuming UserProfile component is added
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false); // State for profile modal
   const [searchQuery, setSearchQuery] = useState('');
   // const { state } = useApp();
   const { user, profile, signOut } = useAuth();
@@ -135,14 +137,13 @@ const Header: React.FC = () => {
                       </div>
 
                       <div className="py-2">
-                        <Link
-                          to="/profile"
+                        <button
+                          onClick={() => setIsProfileModalOpen(true)}
                           className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-3 transition-colors"
-                          onClick={() => setUserMenuOpen(false)}
                         >
                           <Settings size={16} />
                           <span>Настройки профиля</span>
-                        </Link>
+                        </button>
 
                         <Link
                           to="/orders"
@@ -264,13 +265,12 @@ const Header: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <Link
-                    to="/profile"
+                  <button
+                    onClick={() => setIsProfileModalOpen(true)}
                     className="flex-1 text-center py-2 px-3 bg-blue-600 text-white rounded-lg text-sm font-medium"
-                    onClick={() => setIsMenuOpen(false)}
                   >
                     Профиль
-                  </Link>
+                  </button>
                   <button
                     onClick={() => {
                       handleSignOut();
@@ -304,6 +304,12 @@ const Header: React.FC = () => {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfile
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
     </header>
   );

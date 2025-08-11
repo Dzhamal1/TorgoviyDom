@@ -1,16 +1,7 @@
-
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { Product } from '../types'
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { CartItem } from '../lib/mysql'
+import { CartService } from '../services/cartService'
 import { useAuth } from './AuthContext'
-import { supabase } from '../lib/supabase'
-
-// Интерфейс товара в корзине
-export interface CartItem {
-  id: string
-  product: Product
-  quantity: number
-  addedAt: Date
-}
 
 // Интерфейс контекста корзины
 interface CartContextType {
@@ -18,12 +9,11 @@ interface CartContextType {
   totalItems: number
   totalPrice: number
   isLoading: boolean
-  addItem: (product: Product, quantity?: number) => Promise<void>
-  removeItem: (productId: string) => Promise<void>
-  updateQuantity: (productId: string, quantity: number) => Promise<void>
-  clearCart: () => Promise<void>
-  getItemQuantity: (productId: string) => number
-  syncCart: () => Promise<void>
+  addToCart: (product: any) => Promise<boolean>
+  removeFromCart: (itemId: number) => Promise<boolean>
+  updateQuantity: (itemId: number, quantity: number) => Promise<boolean>
+  clearCart: () => Promise<boolean>
+  refreshCart: () => Promise<void>
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -39,26 +29,31 @@ export const useCart = () => {
 
 // Провайдер корзины
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user, isAuthenticated } = useAuth()
   const [items, setItems] = useState<CartItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const { user } = useAuth()
 
-  // Загрузка корзины при инициализации
+  // Загрузка корзины при инициализации или изменении состояния аутентификации
   useEffect(() => {
-    loadCart()
-  }, [user])
+    if (isAuthenticated && user) {
+      refreshCart()
+    } else {
+      // Если пользователь не аутентифицирован, очищаем корзину
+      setItems([])
+    }
+  }, [isAuthenticated, user])
 
-  // Загрузка корзины из Supabase или localStorage
-  const loadCart = async () => {
-    setIsLoading(true)
+  // Функция обновления корзины (загрузка данных из сервиса)
+  const refreshCart = async () => {
+    // Убедимся, что пользователь существует и аутентифицирован
+    if (!user) return
+
     try {
-      if (user) {
-        console.log('🔄 Загружаем корзину из Supabase для пользователя:', user.email)
-        await loadCartFromSupabase()
-      } else {
-        console.log('🔄 Загружаем корзину из localStorage (гость)')
-        loadCartFromLocalStorage()
-      }
+      setIsLoading(true)
+      // Загружаем корзину пользователя с помощью нового сервиса
+      const cartItems = await CartService.getUserCart(user.id)
+      setItems(cartItems)
+      console.log('✅ Корзина загружена:', cartItems.length, 'товаров')
     } catch (error) {
       console.error('❌ Ошибка загрузки корзины:', error)
       // Fallback к localStorage при любой ошибке
@@ -134,22 +129,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
-  // Загрузка корзины из localStorage
-  const loadCartFromLocalStorage = () => {
+  // Удаление товара из корзины
+  const removeFromCart = async (itemId: number): Promise<boolean> => {
     try {
-      const savedCart = localStorage.getItem('cart')
-      if (savedCart) {
-        const parsedCart = JSON.parse(savedCart)
-        const cartWithDates = parsedCart.map((item: any) => ({
-          ...item,
-          addedAt: new Date(item.addedAt)
-        }))
-        setItems(cartWithDates)
-        console.log('✅ Корзина загружена из localStorage:', cartWithDates.length, 'товаров')
-      }
+      // Используем новый сервис для удаления товара
+      await CartService.removeFromCart(itemId)
+      // Обновляем состояние корзины
+      await refreshCart()
+      console.log('✅ Товар удален из корзины:', itemId)
+      return true
     } catch (error) {
-      console.error('❌ Ошибка загрузки корзины из localStorage:', error)
-      localStorage.removeItem('cart')
+      console.error('❌ Ошибка удаления товара из корзины:', error)
+      return false
     }
   }
 
@@ -265,67 +256,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
-  // Удаление товара из корзины
-  const removeItem = async (productId: string): Promise<void> => {
-    const newItems = items.filter(item => item.product.id !== productId)
-    setItems(newItems)
-    await saveCart(newItems)
-    console.log('🗑️ Товар удален из корзины:', productId)
-  }
+  // Вычисление общего количества товаров в корзине
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
+  // Вычисление общей стоимости товаров в корзине
+  const totalPrice = items.reduce((sum, item) => sum + (item.product_price * item.quantity), 0)
 
-  // Обновление количества товара
-  const updateQuantity = async (productId: string, quantity: number): Promise<void> => {
-    if (quantity <= 0) {
-      await removeItem(productId)
-      return
-    }
-
-    const newItems = items.map(item =>
-      item.product.id === productId
-        ? { ...item, quantity }
-        : item
-    )
-    
-    setItems(newItems)
-    await saveCart(newItems)
-    console.log('🔄 Количество товара обновлено:', productId, 'на', quantity)
-  }
-
-  // Очистка корзины
-  const clearCart = async (): Promise<void> => {
-    setItems([])
-    await saveCart([])
-    console.log('🧹 Корзина очищена')
-  }
-
-  // Получение количества конкретного товара в корзине
-  const getItemQuantity = (productId: string): number => {
-    const item = items.find(item => item.product.id === productId)
-    return item ? item.quantity : 0
-  }
-
-  // Синхронизация корзины
-  const syncCart = async (): Promise<void> => {
-    await loadCart()
-  }
-
-  // Вычисление общего количества товаров
-  const totalItems = items.reduce((total, item) => total + item.quantity, 0)
-
-  // Вычисление общей стоимости
-  const totalPrice = items.reduce((total, item) => total + (item.product.price * item.quantity), 0)
-
+  // Значение, передаваемое в контекст
   const value: CartContextType = {
     items,
     totalItems,
     totalPrice,
     isLoading,
-    addItem,
-    removeItem,
+    addToCart,
+    removeFromCart,
     updateQuantity,
     clearCart,
-    getItemQuantity,
-    syncCart
+    refreshCart
   }
 
   return (

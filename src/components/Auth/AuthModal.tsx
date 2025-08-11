@@ -13,7 +13,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -42,10 +42,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
 
     try {
       if (mode === 'signin') {
-        const { error } = await signIn(formData.email, formData.password)
-        if (error) {
-          console.error('❌ Ошибка входа:', error)
-          setError('Неверный email или пароль')
+        const result = await signIn(formData.email, formData.password)
+        if (!result.success) {
+          setError(result.error || 'Ошибка входа')
         } else {
           console.log('✅ Успешный вход')
           onClose()
@@ -56,33 +55,29 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
           return
         }
 
-        const { error } = await signUp(
+        const result = await signUp(
           formData.email,
           formData.password,
           formData.fullName,
           formData.phone
         )
-        
-        if (error) {
+
+        if (!result.success) {
           console.error('❌ Ошибка регистрации в модальном окне:')
-          console.error('Статус:', error.status)
-          console.error('Сообщение:', error.message)
-          
-          if (error.message.includes('already registered')) {
+          console.error('Сообщение:', result.error)
+
+          if (result.error.includes('already registered')) {
             setError('Пользователь с таким email уже существует')
-          } else if (error.status === 401) {
-            setError('Ошибка авторизации. Проверьте настройки Supabase')
-          } else if (error.message.includes('Invalid API key')) {
+          } else if (result.error.includes('Invalid API key')) {
             setError('Ошибка конфигурации. Обратитесь к администратору')
-          } else if (error.message.includes('signup is disabled')) {
+          } else if (result.error.includes('signup is disabled')) {
             setError('Регистрация временно отключена')
           } else {
-            setError(`Ошибка при регистрации: ${error.message}`)
+            setError(`Ошибка при регистрации: ${result.error}`)
           }
         } else {
           console.log('✅ Успешная регистрация')
           setError(null)
-          // Пользователь автоматически входит после регистрации
           onClose()
         }
       }
@@ -221,8 +216,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 's
               }}
               className="text-blue-600 hover:text-blue-800 text-sm"
             >
-              {mode === 'signin' 
-                ? 'Нет аккаунта? Зарегистрируйтесь' 
+              {mode === 'signin'
+                ? 'Нет аккаунта? Зарегистрируйтесь'
                 : 'Уже есть аккаунт? Войдите'
               }
             </button>

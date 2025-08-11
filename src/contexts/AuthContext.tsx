@@ -1,12 +1,10 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase, Profile } from '../lib/supabase'
+import { User } from '../lib/mysql'
+import { AuthService } from '../services/authService'
 
 interface AuthContextType {
   user: User | null
-  profile: Profile | null
-  session: Session | null
   isLoading: boolean
   isAdmin: boolean
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ data: any; error: any }>
@@ -28,8 +26,6 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -80,7 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [])
 
-  const loadUserProfile = async (userId: string) => {
+  const verifyTokenAndSetUser = async (token: string) => {
     try {
       const { data, error, status } = await supabase
         .from('profiles')
@@ -119,35 +115,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setProfile(data)
       console.log('✅ Профиль пользователя загружен')
     } catch (error) {
-      console.error('Критическая ошибка загрузки профиля:', error)
+      console.error('Ошибка проверки токена:', error)
+      localStorage.removeItem('auth_token')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     try {
       setIsLoading(true)
+      const { user, token } = await AuthService.register(email, password, fullName, phone)
       
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: phone || ''
-          }
-        }
-      })
-
-      if (error) {
-        console.error('Ошибка регистрации:', error)
-        return { data: null, error }
-      }
-
+      localStorage.setItem('auth_token', token)
+      setUser(user)
+      
       console.log('✅ Пользователь зарегистрирован:', email)
-      return { data, error: null }
-    } catch (error) {
-      console.error('Критическая ошибка регистрации:', error)
-      return { data: null, error }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Ошибка регистрации:', error)
+      return { success: false, error: error.message }
     } finally {
       setIsLoading(false)
     }
@@ -156,22 +143,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true)
+      const { user, token } = await AuthService.login(email, password)
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (error) {
-        console.error('Ошибка входа:', error)
-        return { data: null, error }
-      }
-
+      localStorage.setItem('auth_token', token)
+      setUser(user)
+      
       console.log('✅ Пользователь вошел в систему:', email)
-      return { data, error: null }
-    } catch (error) {
-      console.error('Критическая ошибка входа:', error)
-      return { data: null, error }
+      return { success: true }
+    } catch (error: any) {
+      console.error('Ошибка входа:', error)
+      return { success: false, error: error.message }
     } finally {
       setIsLoading(false)
     }
@@ -206,28 +187,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
-  const updateProfile = async (updates: Partial<Profile>) => {
+  const updateProfile = async (updates: Partial<User>) => {
     if (!user) {
-      return { data: null, error: new Error('Пользователь не авторизован') }
+      return { success: false, error: 'Пользователь не авторизован' }
     }
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id)
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Ошибка обновления профиля:', error)
-        return { data: null, error }
-      }
-
-      setProfile(data)
+      const updatedUser = await AuthService.updateProfile(user.id, updates)
+      setUser(updatedUser)
       console.log('✅ Профиль обновлен')
       return { data, error: null }
     } catch (error) {
@@ -247,15 +214,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const value: AuthContextType = {
     user,
-    profile,
-    session,
     isLoading,
     isAdmin,
     signUp,
     signIn,
     signOut,
     updateProfile,
-    refreshProfile
+    isAuthenticated: !!user
   }
 
   return (
