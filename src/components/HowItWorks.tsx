@@ -24,7 +24,7 @@ const HowItWorks: React.FC = () => {
                   <div className="w-28 h-28 bg-white border-4 border-blue-500 rounded-full flex items-center justify-center mb-4 shadow">
                     <Icon className="w-10 h-10 text-blue-600" />
                   </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">
+                  <div className="absolute -top-2 left-2 md:-right-2 md:left-auto w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm">
                     {i + 1}
                   </div>
                   <h3 className="text-gray-800 font-medium mb-1 px-2">{s.title}</h3>

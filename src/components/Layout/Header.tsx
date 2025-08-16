@@ -62,8 +62,8 @@ const Header: React.FC = () => {
       {/* Main header */}
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          {/* Лого слева: на мобиле скрыт текст */}
+          <Link to="/" className="hidden md:flex items-center space-x-2">
             <div className="bg-orange-500 text-white p-2 rounded-lg">
               <span className="text-xl font-bold">ТД</span>
             </div>
@@ -73,7 +73,7 @@ const Header: React.FC = () => {
             </div>
           </Link>
 
-          {/* Search bar - desktop */}
+          {/* Поиск (десктоп) */}
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
             <div className="flex w-full rounded-lg overflow-hidden border border-gray-300">
               <input
@@ -92,14 +92,31 @@ const Header: React.FC = () => {
             </div>
           </form>
 
-          {/* Cart and menu */}
-          <div className="flex items-center space-x-4">
+          {/* Правый блок: на мобиле все иконки справа: ТД, лупа, корзина, гамбургер */}
+          <div className="flex items-center space-x-2 md:space-x-4 justify-end w-full md:w-auto">
+            {/* Иконка ТД (мобила) */}
+            <Link to="/" className="md:hidden p-2 bg-orange-500 text-white rounded-lg" aria-label="На главную">
+              <span className="text-base font-bold">ТД</span>
+            </Link>
+
+            {/* Лупа (мобила) — раскрывает поиск */}
+            <button
+              className="md:hidden p-2 text-gray-600 hover:text-blue-600 rounded-lg hover:bg-gray-50"
+              aria-label="Открыть поиск"
+              onClick={() => {
+                const f = document.getElementById('mobile-search-form')
+                if (f) f.classList.toggle('hidden')
+              }}
+            >
+              <Search size={24} />
+            </button>
+
             {/* Auth section */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors px-2 py-2 rounded-lg hover:bg-gray-50"
+                  className="hidden md:flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors px-2 py-2 rounded-lg hover:bg-gray-50"
                 >
                   <div className="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center text-base font-medium">
                     {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
@@ -170,7 +187,7 @@ const Header: React.FC = () => {
             ) : (
               <button
                 onClick={() => setAuthModalOpen(true)}
-                className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors px-2 py-2 rounded-lg hover:bg-gray-50"
+                className="hidden md:flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors px-2 py-2 rounded-lg hover:bg-gray-50"
               >
                 <div className="w-7 h-7 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center">
                   <User size={16} />
@@ -190,14 +207,9 @@ const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* Partners link */}
-            <Link to="/partners" className="p-2 text-gray-800 hover:text-blue-600 transition-colors" title="Наши партнёры">
-              Наши партнёры
-            </Link>
-
-            {/* Админская панель (только для админов) */}
+            {/* Админ (только десктоп) */}
             {user?.email?.includes('admin') && (
-              <Link to="/admin" className="p-2 text-gray-600 hover:text-blue-600 transition-colors" title="Админская панель">
+              <Link to="/admin" className="hidden md:inline p-2 text-gray-600 hover:text-blue-600 transition-colors" title="Админская панель">
                 <Settings size={24} />
               </Link>
             )}
@@ -212,8 +224,8 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile search */}
-        <form onSubmit={handleSearch} className="md:hidden mt-4">
+        {/* Mobile search: скрыт, открывается по лупе */}
+        <form onSubmit={handleSearch} className="md:hidden mt-4 hidden" id="mobile-search-form">
           <div className="flex w-full rounded-lg overflow-hidden border border-gray-300">
             <input
               type="text"
@@ -300,6 +312,14 @@ const Header: React.FC = () => {
                   {category.name}
                 </Link>
               ))}
+              {/* Переносим «Наши партнёры» в мобильное меню */}
+              <Link
+                to="/partners"
+                className="block text-gray-700 hover:text-blue-600 font-medium py-3 px-3 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Наши партнёры
+              </Link>
             </div>
           </div>
         </nav>
