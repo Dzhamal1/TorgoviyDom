@@ -75,17 +75,17 @@ const Header: React.FC = () => {
 
           {/* Search bar - desktop */}
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
+            <div className="flex w-full rounded-lg overflow-hidden border border-gray-300">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск товаров..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 border-0"
               />
               <button
                 type="submit"
-                className="absolute right-0 top-0 h-full px-4 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
+                className="px-4 bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               >
                 <Search size={20} />
               </button>
@@ -190,6 +190,11 @@ const Header: React.FC = () => {
               )}
             </Link>
 
+            {/* Partners link */}
+            <Link to="/partners" className="p-2 text-gray-800 hover:text-blue-600 transition-colors" title="Наши партнёры">
+              Наши партнёры
+            </Link>
+
             {/* Админская панель (только для админов) */}
             {user?.email?.includes('admin') && (
               <Link to="/admin" className="p-2 text-gray-600 hover:text-blue-600 transition-colors" title="Админская панель">
@@ -209,17 +214,17 @@ const Header: React.FC = () => {
 
         {/* Mobile search */}
         <form onSubmit={handleSearch} className="md:hidden mt-4">
-          <div className="relative">
+          <div className="flex w-full rounded-lg overflow-hidden border border-gray-300">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Поиск товаров..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 border-0"
             />
             <button
               type="submit"
-              className="absolute right-0 top-0 h-full px-4 bg-blue-600 text-white rounded-r-lg"
+              className="px-4 bg-blue-600 text-white"
             >
               <Search size={20} />
             </button>

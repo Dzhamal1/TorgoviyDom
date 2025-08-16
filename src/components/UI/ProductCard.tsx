@@ -23,14 +23,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!product.inStock || buttonState === 'loading') return;
+    if (buttonState === 'loading') return;
     
     setButtonState('loading');
     
     try {
       await addItem(product, quantity);
       setButtonState('success');
-      
       // Возвращаем в обычное состояние через 1.5 секунды
       setTimeout(() => {
         setButtonState('default');
@@ -77,7 +76,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       case 'success':
         return 'bg-green-500';
       default:
-        return product.inStock ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-200';
+        return 'bg-orange-500 hover:bg-orange-600';
     }
   };
 
@@ -95,7 +94,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group">
       <Link to={`/product/${product.id}`}>
-        <div className="relative h-48 bg-gray-100 flex items-center justify-center">
+        <div className="relative h-56 bg-gray-100 flex items-center justify-center">
           {product.image ? (
             <img
               src={product.image}
@@ -113,12 +112,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               loading="lazy"
               decoding="async"
             />
-          )}
-          
-          {!product.inStock && (
-            <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-              Нет в наличии
-            </div>
           )}
           
           {currentQuantityInCart > 0 && (
@@ -139,23 +132,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             {product.name}
           </h3>
         </Link>
-        
-        <p className="text-gray-600 text-sm line-clamp-2 mb-3">
-          {product.description}
-        </p>
+        {product.sizes && (
+          <p className="text-gray-600 text-sm mb-1">Размеры: {product.sizes}</p>
+        )}
+        {product.manufacturer && (
+          <p className="text-gray-600 text-sm mb-2">Производитель: {product.manufacturer}</p>
+        )}
+        <p className="text-gray-700 text-sm line-clamp-3 mb-3">{product.description}</p>
 
         <div className="flex items-center justify-between mb-3">
           <span className="text-xl font-bold text-blue-600">
             {formatPrice(product.price)}
           </span>
           
-          <span className={`text-xs px-2 py-1 rounded-full ${
-            product.inStock 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
-            {product.inStock ? 'В наличии' : 'Нет в наличии'}
-          </span>
+          <span />
         </div>
 
         <div className="flex items-center space-x-2">
@@ -167,7 +157,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 e.stopPropagation();
                 handleQuantityChange(quantity - 1);
               }}
-              disabled={!product.inStock || quantity <= 1}
+              disabled={quantity <= 1}
               className="px-3 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Minus size={16} />
@@ -191,7 +181,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 e.stopPropagation();
                 handleQuantityChange(quantity + 1);
               }}
-              disabled={!product.inStock}
+              disabled={false}
               className="px-3 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Plus size={16} />
@@ -201,9 +191,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Кнопка добавления в корзину */}
           <button
             onClick={handleAddToCart}
-            disabled={!product.inStock || isLoading || buttonState === 'loading'}
+            disabled={isLoading || buttonState === 'loading'}
             className={`flex-1 py-2 px-4 rounded-lg transition-all duration-300 text-white font-medium flex items-center justify-center space-x-2 ${getButtonColor()} disabled:cursor-not-allowed shadow-md hover:shadow-lg`}
-            title={product.inStock ? 'Добавить в корзину' : 'Товара нет в наличии'}
+            title={'Добавить в корзину'}
           >
             {getButtonContent()}
             <span className="text-sm">

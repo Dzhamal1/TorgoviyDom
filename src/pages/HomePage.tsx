@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Shield, Truck, Clock, Star } from 'lucide-react';
+import { ArrowRight, Shield, Truck, Clock } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { fetchProductsFromGoogleSheets, getMockCategories, getMockProducts } from '../services/googleSheetsApi';
+import { getMockCategories, getMockProducts } from '../services/googleSheetsApi';
+import { api } from '../services/api';
 import CategoryCard from '../components/UI/CategoryCard';
 import ProductCard from '../components/UI/ProductCard';
 import ContactForm from '../components/UI/ContactForm';
 import LoadingSpinner from '../components/UI/LoadingSpinner';
+import HowItWorks from '../components/HowItWorks';
 
 const HomePage: React.FC = () => {
   const { state, dispatch } = useApp();
@@ -19,8 +21,8 @@ const HomePage: React.FC = () => {
       try {
         console.log('Начинаем загрузку данных...');
         
-        // Загружаем товары
-        const products = await fetchProductsFromGoogleSheets();
+        // Загружаем товары (через Edge Function)
+        const products = await api.getProducts();
         console.log('Товары загружены:', products.length);
         
         // Загружаем категории
@@ -64,7 +66,7 @@ const HomePage: React.FC = () => {
       description: 'Пн-Пт: 9:00-18:00',
     },
     {
-      icon: Star,
+      icon: Shield,
       title: 'Лучшие цены',
       description: 'Конкурентные цены от производителей',
     },
@@ -176,6 +178,9 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* How it works (из schema) */}
+      <HowItWorks />
 
       {/* Contact Form */}
       <section className="py-16">

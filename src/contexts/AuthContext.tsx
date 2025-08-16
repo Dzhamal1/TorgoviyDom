@@ -81,43 +81,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [])
 
   const loadUserProfile = async (userId: string) => {
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
     try {
-      const { data, error, status } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error || status === 406 || !data) {
-        // Профиль не найден или сервер вернул 406 — создаем/обновляем профиль
-        console.log('Профиль не найден, создаем/обновляем профиль...')
-        const fullName = (user?.user_metadata as any)?.full_name || user?.email?.split('@')[0] || 'Пользователь'
-        const phone = (user?.user_metadata as any)?.phone || null
-
-        const { data: upserted, error: upsertError } = await supabase
+      // Пытаемся несколько раз из-за возможной задержки синхронизации
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { data, error } = await supabase
           .from('profiles')
-          .upsert({
-            id: userId,
-            email: user?.email || '',
-            full_name: fullName,
-            phone: phone,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'id' })
-          .select()
-          .single()
+          .select('id, email, full_name, phone, is_admin, updated_at')
+          .eq('id', userId)
+          .maybeSingle()
 
-        if (upsertError) {
-          console.error('Ошибка создания/обновления профиля:', upsertError)
+        if (error) {
+          console.error(`Ошибка загрузки профиля (попытка ${attempt}/3):`, error)
+          if (attempt < 3) { await wait(250) ; continue }
+        }
+
+        if (data) {
+          setProfile(data as Profile)
+          console.log('✅ Профиль пользователя загружен')
           return
         }
 
-        setProfile(upserted)
-        console.log('✅ Профиль создан/обновлен')
-        return
+        // Фолбэк-поиск по email, если есть
+        const email = user?.email
+        if (email) {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, phone, is_admin, updated_at')
+            .eq('email', email)
+            .maybeSingle()
+          if (byEmail) {
+            setProfile(byEmail as Profile)
+            console.log('✅ Профиль найден по email')
+            return
+          }
+        }
+
+        if (attempt < 3) { await wait(250) }
       }
 
-      setProfile(data)
-      console.log('✅ Профиль пользователя загружен')
+      // Профиль не найден — ничего не создаем
+      setProfile(null)
+      console.warn('ℹ️ Профиль не найден. Автоматическое создание отключено')
     } catch (error) {
       console.error('Критическая ошибка загрузки профиля:', error)
     }

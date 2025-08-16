@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ShoppingCart, Star, Truck, Shield, ArrowLeft, Plus, Minus, Package } from 'lucide-react';
+import { ShoppingCart, Truck, Shield, ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCart } from '../contexts/CartContext';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
@@ -8,7 +8,7 @@ import ProductCard from '../components/UI/ProductCard';
 
 const ProductPage: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const { addItem } = useCart();
   const [quantity, setQuantity] = React.useState(1);
 
@@ -58,24 +58,10 @@ const ProductPage: React.FC = () => {
 
   const breadcrumbItems = [
     { label: 'Главная', href: '/' },
-    { label: 'Категории', href: '/categories' },
-    { label: product.category, href: `/category/${getCategoryIdByName(product.category)}` },
     { label: product.name },
   ];
 
-  // Функция для получения ID категории по названию
-  function getCategoryIdByName(categoryName: string): string {
-    const categoryMap: { [key: string]: string } = {
-      'Стройматериалы': 'stroy',
-      'Электрика': 'electrical',
-      'Инструменты': 'tools',
-      'Сантехника': 'plumbing', 
-      'Мебель': 'furniture',
-      'Интерьер': 'interior',
-      'Крепежи': 'fasteners',
-    };
-    return categoryMap[categoryName] || categoryName.toLowerCase();
-  }
+  // Удалили навигацию по категориям — хлебные крошки упрощены
 
   return (
     <div>
@@ -112,25 +98,16 @@ const ProductPage: React.FC = () => {
 
           {/* Product Info */}
           <div>
-            <div className="mb-4">
-              <Link
-                to={`/category/${product.category.toLowerCase()}`}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                {product.category}
-              </Link>
-            </div>
+            <div className="mb-4" />
 
             <h1 className="text-3xl font-bold text-gray-800 mb-4">{product.name}</h1>
 
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="flex text-yellow-400">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={20} fill="currentColor" />
-                ))}
-              </div>
-              <span className="text-sm text-gray-600">4.8 (24 отзыва)</span>
-            </div>
+            {product.sizes && (
+              <p className="text-gray-700 mb-2">Размеры: {product.sizes}</p>
+            )}
+            {product.manufacturer && (
+              <p className="text-gray-700 mb-4">Производитель: {product.manufacturer}</p>
+            )}
 
             <div className="mb-6">
               <span className="text-4xl font-bold text-blue-600">
@@ -138,15 +115,7 @@ const ProductPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="mb-6">
-              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                product.inStock 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {product.inStock ? 'В наличии' : 'Нет в наличии'}
-              </span>
-            </div>
+            <div className="mb-4" />
 
             <div className="space-y-4 mb-8">
               {/* Селектор количества */}
@@ -155,7 +124,6 @@ const ProductPage: React.FC = () => {
                 <div className="flex items-center bg-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm">
                   <button
                     onClick={() => handleQuantityChange(quantity - 1)}
-                    disabled={!product.inStock}
                     className="px-4 py-3 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   >
                     <Minus size={20} />
@@ -172,7 +140,6 @@ const ProductPage: React.FC = () => {
                   />
                   <button
                     onClick={() => handleQuantityChange(quantity + 1)}
-                    disabled={!product.inStock}
                     className="px-4 py-3 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   >
                     <Plus size={20} />
@@ -182,17 +149,10 @@ const ProductPage: React.FC = () => {
 
               <button
                 onClick={handleAddToCart}
-                disabled={!product.inStock}
-                className={`w-full py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
-                  product.inStock
-                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
+                className={`w-full py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white`}
               >
                 <ShoppingCart size={20} />
-                <span>
-                  {product.inStock ? `Добавить в корзину (${quantity} шт.)` : 'Товара нет в наличии'}
-                </span>
+                <span>Добавить в корзину ({quantity} шт.)</span>
               </button>
 
               <Link

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, CreditCard, Package } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, CreditCard } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { saveOrder } from '../services/notificationService';
+import { api } from '../services/api';
 
 const CartPage: React.FC = () => {
   const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart();
@@ -16,6 +17,10 @@ const CartPage: React.FC = () => {
   });
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<null | 'success' | 'error'>(null);
+  const [addressQuery, setAddressQuery] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<Array<{ value: string; lat: number | null; lon: number | null }>>([]);
+  // const [selectedCoords, setSelectedCoords] = useState<{ lat: number | null; lon: number | null }>({ lat: null, lon: null });
+  const [delivery, setDelivery] = useState<{ distance_km: number; cost_rub: number } | null>(null);
   const navigate = useNavigate();
 
   const formatPrice = (price: number) => {
@@ -25,6 +30,10 @@ const CartPage: React.FC = () => {
       minimumFractionDigits: 0,
     }).format(price);
   };
+
+  const totalWithDelivery = useMemo(() => {
+    return totalPrice + (delivery?.cost_rub || 0)
+  }, [totalPrice, delivery])
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
     updateQuantity(productId, newQuantity);
@@ -36,11 +45,34 @@ const CartPage: React.FC = () => {
     }
   };
 
+  const validatePhone = (phone: string): boolean => {
+    const cleaned = phone.replace(/\D/g, '')
+    return cleaned.length === 11 && (cleaned[0] === '7' || cleaned[0] === '8')
+  }
+
+  const validateEmail = (email: string): boolean => {
+    if (!email) return true // email необязательный
+    const at = email.indexOf('@')
+    if (at <= 0 || at === email.length - 1) return false
+    const domain = email.slice(at + 1)
+    return domain.includes('.')
+  }
+
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (items.length === 0) {
       alert('Корзина пуста');
+      return;
+    }
+
+    if (!validatePhone(customerInfo.phone)) {
+      alert('Введите корректный номер телефона в формате 7XXXXXXXXXX или 8XXXXXXXXXX');
+      return;
+    }
+
+    if (!validateEmail(customerInfo.email)) {
+      alert('Введите корректный email (например, name@domain.ru) или оставьте поле пустым');
       return;
     }
     
@@ -58,8 +90,9 @@ const CartPage: React.FC = () => {
         price: item.product.price,
         quantity: item.quantity
       })),
-      totalAmount: totalPrice,
+      totalAmount: totalWithDelivery,
       userId: user?.id,
+      delivery: delivery || undefined
     };
 
     console.log('📦 Данные заказа подготовлены:', orderData.orderId)
@@ -113,6 +146,26 @@ const CartPage: React.FC = () => {
       )
     }
     return null
+  }
+
+  const handleAddressInput = async (value: string) => {
+    setAddressQuery(value)
+    setCustomerInfo({ ...customerInfo, address: value })
+    if (value.trim().length < 3) { setAddressSuggestions([]); return }
+    try {
+      const suggestions = await api.addressAutocomplete(value)
+      setAddressSuggestions(suggestions)
+    } catch { setAddressSuggestions([]) }
+  }
+
+  const handlePickSuggestion = async (s: { value: string; lat: number | null; lon: number | null }) => {
+    setCustomerInfo({ ...customerInfo, address: s.value })
+    setAddressQuery(s.value)
+    setAddressSuggestions([])
+    // setSelectedCoords({ lat: s.lat, lon: s.lon })
+    if (s.lat != null && s.lon != null) {
+      try { setDelivery(await api.deliveryCost(s.lat, s.lon)) } catch { setDelivery(null) }
+    }
   }
 
   // Если корзина пуста
@@ -172,8 +225,8 @@ const CartPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Товары в корзине */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Итоги и форма (поменяли местами: форма наверху справа, итоги вниз) */}
+          <div className="order-2 lg:order-1 lg:col-span-2 space-y-4">
             {items.map((item) => (
               <div key={item.id} className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-start space-x-4">
@@ -185,7 +238,7 @@ const CartPage: React.FC = () => {
                       loading="lazy"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/96x96/f3f4f6/9ca3af?text=Нет+фото';
+                        target.src = '/product-placeholder.svg';
                       }}
                     />
                   </div>
@@ -250,25 +303,9 @@ const CartPage: React.FC = () => {
           </div>
 
           {/* Оформление заказа */}
-          <div>
+          <div className="order-1 lg:order-2">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
               <h2 className="text-xl font-bold text-gray-800 mb-6">Оформление заказа</h2>
-              
-              {/* Итоги заказа */}
-              <div className="space-y-3 mb-6 pb-6 border-b">
-                <div className="flex justify-between text-gray-600">
-                  <span>Товары ({totalItems} шт.):</span>
-                  <span>{formatPrice(totalPrice)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Доставка:</span>
-                  <span className="text-green-600">Бесплатно</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg text-gray-800 pt-3 border-t">
-                  <span>Итого:</span>
-                  <span>{formatPrice(totalPrice)}</span>
-                </div>
-              </div>
 
               {/* Форма заказа */}
               <form onSubmit={handleOrderSubmit} className="space-y-4">
@@ -293,8 +330,22 @@ const CartPage: React.FC = () => {
                   <input
                     type="tel"
                     required
-                    value={customerInfo.phone}
-                    onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                    value={(() => {
+                      const d = (customerInfo.phone || '').replace(/\D/g, '')
+                      const digits = d.startsWith('8') ? '7' + d.slice(1) : d
+                      const p = (s: string, i: number, c: string) => (s.length > i ? s[i] : c)
+                      const a = p(digits, 1, '_') + p(digits, 2, '_') + p(digits, 3, '_')
+                      const b = p(digits, 4, '_') + p(digits, 5, '_') + p(digits, 6, '_')
+                      const c2 = p(digits, 7, '_') + p(digits, 8, '_')
+                      const d2 = p(digits, 9, '_') + p(digits, 10, '_')
+                      return `+7 (${a}) ${b}-${c2}-${d2}`
+                    })()}
+                    onChange={(e) => {
+                      const onlyDigits = (e.target.value || '').replace(/\D/g, '')
+                      const normalized = onlyDigits.startsWith('8') ? '7' + onlyDigits.slice(1) : onlyDigits
+                      const capped = normalized.slice(0, 11)
+                      setCustomerInfo({ ...customerInfo, phone: capped })
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="+7 (___) ___-__-__"
                   />
@@ -317,14 +368,32 @@ const CartPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Адрес доставки *
                   </label>
-                  <textarea
-                    required
-                    value={customerInfo.address}
-                    onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    rows={3}
-                    placeholder="Укажите полный адрес доставки"
-                  />
+                  <div className="relative">
+                    <input
+                      required
+                      value={addressQuery}
+                      onChange={(e) => handleAddressInput(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Начните вводить адрес..."
+                    />
+                    {addressSuggestions.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {addressSuggestions.map((s, idx) => (
+                          <button
+                            type="button"
+                            key={idx}
+                            onClick={() => handlePickSuggestion(s)}
+                            className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                          >
+                            {s.value}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {delivery && (
+                    <p className="text-xs text-gray-500 mt-1">Расстояние: {Math.ceil(delivery.distance_km)} км; Стоимость: {formatPrice(delivery.cost_rub)}</p>
+                  )}
                 </div>
 
                 <button
@@ -345,6 +414,22 @@ const CartPage: React.FC = () => {
                   )}
                 </button>
               </form>
+
+              {/* Итоги заказа (переместил вниз) */}
+              <div className="space-y-3 mt-6 pt-6 border-t">
+                <div className="flex justify-between text-gray-600">
+                  <span>Товары ({totalItems} шт.):</span>
+                  <span>{formatPrice(totalPrice)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Доставка:</span>
+                  <span>{delivery ? formatPrice(delivery.cost_rub) : '—'}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg text-gray-800 pt-3 border-t">
+                  <span>Итого:</span>
+                  <span>{formatPrice(totalWithDelivery)}</span>
+                </div>
+              </div>
 
               <p className="text-xs text-gray-500 mt-4 text-center">
                 Нажимая "Оформить заказ", вы соглашаетесь с условиями обработки персональных данных

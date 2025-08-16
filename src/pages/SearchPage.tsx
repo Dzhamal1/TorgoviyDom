@@ -8,13 +8,17 @@ import LoadingSpinner from '../components/UI/LoadingSpinner';
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'popular'>('popular');
-  const [filterInStock, setFilterInStock] = useState(false);
+  const [selectedClass, setSelectedClass] = useState('');
+  const [manufacturers, setManufacturers] = useState<string[]>([]);
+  const [classes, setClasses] = useState<string[]>([]);
+  const [selectedManufacturers, setSelectedManufacturers] = useState<string[]>([]);
 
   const categories = ['Стройматериалы', 'Электрика', 'Инструменты', 'Сантехника', 'Мебель', 'Интерьер', 'Крепежи'];
+  // Подтягиваем фильтры (производители/класс) из Google Sheets через edge function filters — уже подключено в useEffect
 
   const filteredProducts = useMemo(() => {
     if (!state.products || state.products.length === 0) {
@@ -38,9 +42,12 @@ const SearchPage: React.FC = () => {
       if (selectedCategory && product.category !== selectedCategory) {
         return false;
       }
-
-      // In stock filter
-      if (filterInStock && !product.inStock) {
+      // Class filter
+      if (selectedClass && (product.class || '') !== selectedClass) {
+        return false;
+      }
+      // Manufacturers filter
+      if (selectedManufacturers.length > 0 && (!product.manufacturer || !selectedManufacturers.includes(product.manufacturer))) {
         return false;
       }
 
@@ -56,12 +63,12 @@ const SearchPage: React.FC = () => {
           return a.price - b.price;
         case 'popular':
         default:
-          return b.inStock ? 1 : -1; // In stock items first
+          return 0;
       }
     });
 
     return filtered;
-  }, [state.products, searchQuery, selectedCategory, filterInStock, sortBy]);
+  }, [state.products, searchQuery, selectedCategory, selectedClass, selectedManufacturers, sortBy]);
 
   useEffect(() => {
     const query = searchParams.get('q');
@@ -69,6 +76,63 @@ const SearchPage: React.FC = () => {
       setSearchQuery(query);
     }
   }, [searchParams]);
+
+  // Загружаем списки фильтров с сервера (Edge Function filters) с резервом на клиенте
+  useEffect(() => {
+    (async () => {
+      try {
+        const { api } = await import('../services/api')
+        const params: any = {}
+        if (selectedCategory) params.category = selectedCategory
+        if (selectedClass) params.class = selectedClass
+        const data = await api.getFilters(params)
+        let cls = Array.from(new Set((data.classes || []).map(x => (x || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        let mans = Array.from(new Set((data.manufacturers || []).map(x => (x || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+
+        // Резерв: считаем на клиенте, если сервер ничего не вернул
+        if (cls.length === 0 || mans.length === 0) {
+          let base = state.products || []
+          if (selectedCategory) base = base.filter(p => p.category === selectedCategory)
+          cls = Array.from(new Set(base.map(p => (p.class || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+
+          let base2 = base
+          if (selectedClass) base2 = base2.filter(p => (p.class || '') === selectedClass)
+          mans = Array.from(new Set(base2.map(p => (p.manufacturer || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        }
+
+        setClasses(cls)
+        setManufacturers(mans)
+        setSelectedManufacturers(prev => prev.filter(m => mans.includes(m)))
+      } catch {
+        // Резерв при ошибке
+        let base = state.products || []
+        if (selectedCategory) base = base.filter(p => p.category === selectedCategory)
+        const cls = Array.from(new Set(base.map(p => (p.class || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        let base2 = base
+        if (selectedClass) base2 = base2.filter(p => (p.class || '') === selectedClass)
+        const mans = Array.from(new Set(base2.map(p => (p.manufacturer || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        setClasses(cls)
+        setManufacturers(mans)
+        setSelectedManufacturers(prev => prev.filter(m => mans.includes(m)))
+      }
+    })()
+  }, [selectedCategory, selectedClass, state.products])
+
+  // При прямом заходе — загрузим товары
+  useEffect(() => {
+    const load = async () => {
+      if (state.products && state.products.length > 0) return;
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        const { api } = await import('../services/api');
+        const products = await api.getProducts();
+        dispatch({ type: 'SET_PRODUCTS', payload: products });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+    load();
+  }, [dispatch, state.products]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,17 +213,43 @@ const SearchPage: React.FC = () => {
                 </select>
               </div>
 
-              {/* In stock filter */}
+              {/* Class filter */}
               <div className="mb-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={filterInStock}
-                    onChange={(e) => setFilterInStock(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm">Только в наличии</span>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Класс
                 </label>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Все классы</option>
+                  {classes.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Manufacturers checkboxes */}
+              <div className="mb-6">
+                <span className="block text-sm font-medium text-gray-700 mb-2">Производители</span>
+                <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                  {manufacturers.length === 0 ? (
+                    <span className="text-sm text-gray-500">Нет данных</span>
+                  ) : manufacturers.map(m => (
+                    <label key={m} className="flex items-center text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedManufacturers.includes(m)}
+                        onChange={(e) => {
+                          setSelectedManufacturers(prev => e.target.checked ? [...prev, m] : prev.filter(x => x !== m))
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2">{m}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Sort */}
@@ -203,7 +293,6 @@ const SearchPage: React.FC = () => {
                       onClick={() => {
                         setSearchQuery('');
                         setSelectedCategory('');
-                        setFilterInStock(false);
                         setSearchParams({});
                       }}
                       className="text-blue-600 hover:text-blue-800 font-medium"

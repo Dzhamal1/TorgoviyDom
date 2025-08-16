@@ -1,17 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Filter, SortAsc, Grid, List } from 'lucide-react';
+import { Filter, Grid, List } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import ProductCard from '../components/UI/ProductCard';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
 import LoadingSpinner from '../components/UI/LoadingSpinner';
+import { api } from '../services/api';
 
 const CategoryPage: React.FC = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'popular'>('popular');
   const [filterInStock, setFilterInStock] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [selectedClass, setSelectedClass] = useState('');
+  const [classes, setClasses] = useState<string[]>([]);
+  const [manufacturers, setManufacturers] = useState<string[]>([]);
+  const [selectedManufacturers, setSelectedManufacturers] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -37,7 +42,58 @@ const CategoryPage: React.FC = () => {
     'Крепежи': 'fasteners',
   };
 
-  const currentCategoryName = categoryIdToName[categoryId || ''] || 'Категория';
+  const mappedCategoryName = categoryIdToName[categoryId || '']
+  const currentCategoryName = mappedCategoryName || 'Категория';
+
+  // Фолбэк: при прямом переходе на страницу категории загружаем товары
+  useEffect(() => {
+    const ensureProductsLoaded = async () => {
+      if (state.products && state.products.length > 0) return;
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        const products = await api.getProducts();
+        dispatch({ type: 'SET_PRODUCTS', payload: products });
+      } catch (e) {
+        // игнорируем, UI уже умеет показывать отсутствие данных
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+    ensureProductsLoaded();
+  }, [dispatch, state.products]);
+
+  // Загружаем фильтры с сервера (Edge Function filters)
+  useEffect(() => {
+    (async () => {
+      try {
+        const params: any = { ...(selectedClass ? { class: selectedClass } : {}) }
+        if (mappedCategoryName) params.category = mappedCategoryName
+        const data = await api.getFilters(params);
+        let cls = Array.from(new Set((data.classes || []).map(x => (x || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        let mans = Array.from(new Set((data.manufacturers || []).map(x => (x || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+
+        // Резервный расчет на клиенте, если сервер ничего не вернул
+        if (cls.length === 0 || mans.length === 0) {
+          const inCategory = (state.products || []).filter(p => p.category === currentCategoryName)
+          cls = Array.from(new Set(inCategory.map(p => (p.class || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+          const filteredByClass = selectedClass ? inCategory.filter(p => (p.class || '') === selectedClass) : inCategory
+          mans = Array.from(new Set(filteredByClass.map(p => (p.manufacturer || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        }
+        setClasses(cls)
+        setManufacturers(mans)
+        setSelectedManufacturers(prev => prev.filter(m => mans.includes(m)))
+      } catch (e) {
+        // Резерв: считаем на клиенте
+        const inCategory = (state.products || []).filter(p => p.category === currentCategoryName)
+        const cls = Array.from(new Set(inCategory.map(p => (p.class || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        const filteredByClass = selectedClass ? inCategory.filter(p => (p.class || '') === selectedClass) : inCategory
+        const mans = Array.from(new Set(filteredByClass.map(p => (p.manufacturer || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
+        setClasses(cls)
+        setManufacturers(mans)
+        setSelectedManufacturers(prev => prev.filter(m => mans.includes(m)))
+      }
+    })()
+  }, [currentCategoryName, selectedClass, state.products])
 
   const filteredAndSortedProducts = useMemo(() => {
     if (!state.products || state.products.length === 0) {
@@ -52,7 +108,17 @@ const CategoryPage: React.FC = () => {
           return false;
         }
       }
-      if (filterInStock && !product.inStock) return false;
+      // Фильтр по классу
+      if (selectedClass && (product.class || '') !== selectedClass) {
+        return false;
+      }
+      // Фильтр по производителю
+      if (selectedManufacturers.length > 0) {
+        if (!product.manufacturer || !selectedManufacturers.includes(product.manufacturer)) {
+          return false;
+        }
+      }
+      // Условие наличия отключено по требованиям
       if (product.price < priceRange[0] || product.price > priceRange[1]) return false;
       return true;
     });
@@ -66,12 +132,12 @@ const CategoryPage: React.FC = () => {
           return a.price - b.price;
         case 'popular':
         default:
-          return b.inStock ? 1 : -1; // In stock items first
+          return 0;
       }
     });
 
     return filtered;
-  }, [state.products, categoryId, categoryIdToName, filterInStock, priceRange, sortBy]);
+  }, [state.products, categoryId, categoryIdToName, filterInStock, priceRange, sortBy, selectedClass, selectedManufacturers]);
 
   // Calculate price range for slider
   const maxPrice = useMemo(() => {
@@ -91,7 +157,6 @@ const CategoryPage: React.FC = () => {
 
   const breadcrumbItems = [
     { label: 'Главная', href: '/' },
-    { label: 'Категории', href: '/categories' },
     { label: currentCategoryName },
   ];
 
@@ -165,17 +230,41 @@ const CategoryPage: React.FC = () => {
                 Фильтры
               </h3>
 
-              {/* In stock filter */}
+              {/* Фильтр по классу */}
               <div className="mb-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={filterInStock}
-                    onChange={(e) => setFilterInStock(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-sm">Только в наличии</span>
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Класс</label>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Все классы</option>
+                  {classes.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Фильтр по производителю */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Производитель</label>
+                <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                  {manufacturers.length === 0 ? (
+                    <span className="text-sm text-gray-500">Нет данных</span>
+                  ) : manufacturers.map((m) => (
+                    <label key={m} className="flex items-center text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedManufacturers.includes(m)}
+                        onChange={(e) => {
+                          setSelectedManufacturers(prev => e.target.checked ? [...prev, m] : prev.filter(x => x !== m))
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2">{m}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {/* Price range */}
@@ -204,6 +293,8 @@ const CategoryPage: React.FC = () => {
                 onClick={() => {
                   setFilterInStock(false);
                   setPriceRange([0, maxPrice]);
+                  setSelectedClass('');
+                  setSelectedManufacturers([]);
                 }}
                 className="w-full text-blue-600 hover:text-blue-800 text-sm font-medium"
               >

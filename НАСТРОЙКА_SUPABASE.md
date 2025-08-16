@@ -1,80 +1,66 @@
-# Настройка Supabase для работы корзины
+# Настройка Supabase для исправления ошибки 403
 
-## 🔧 Шаг 1: Создание файла .env
+## 🔧 Исправление RLS политик
 
-Создайте файл `.env` в корне проекта (там же где package.json):
-
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-```
-
-### Как получить значения:
-
-1. **VITE_SUPABASE_URL**: 
-   - Откройте Supabase Dashboard
-   - Перейдите в Settings → API
-   - Скопируйте "Project URL"
-
-2. **VITE_SUPABASE_ANON_KEY**:
-   - В том же разделе Settings → API
-   - Скопируйте "anon public" ключ
-
-## 🔧 Шаг 2: Создание таблиц
-
-Выполните SQL код в Supabase SQL Editor:
+Выполните этот SQL код в Supabase SQL Editor для исправления ошибки "new row violates row-level security policy":
 
 ```sql
--- Создаем таблицу корзины
-CREATE TABLE public.cart_items (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  product_id TEXT NOT NULL,
-  product_name TEXT NOT NULL,
-  product_price DECIMAL(10,2) NOT NULL,
-  product_image TEXT NOT NULL,
-  product_category TEXT NOT NULL,
-  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Удаляем старые политики если есть
+DROP POLICY IF EXISTS "Все могут создавать сообщения" ON public.contact_messages;
+DROP POLICY IF EXISTS "Anyone can create contact messages" ON public.contact_messages;
 
--- Создаем индексы
-CREATE INDEX idx_cart_items_user_id ON public.cart_items(user_id);
+-- Создаем новую политику для вставки сообщений
+CREATE POLICY "contact_messages_insert_policy" ON public.contact_messages
+  FOR INSERT WITH CHECK (true);
 
--- Включаем RLS
-ALTER TABLE public.cart_items ENABLE ROW LEVEL SECURITY;
+-- Создаем политику для чтения (только админы)
+CREATE POLICY "contact_messages_select_policy" ON public.contact_messages
+  FOR SELECT USING (
+    auth.role() = 'authenticated' AND 
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() AND full_name ILIKE '%admin%'
+    )
+  );
 
--- Создаем политики
-CREATE POLICY "Пользователи видят только свою корзину" ON public.cart_items
-  FOR SELECT USING (auth.uid() = user_id);
+-- Проверяем что RLS включен
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Пользователи могут добавлять в свою корзину" ON public.cart_items
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- Аналогично для orders
+DROP POLICY IF EXISTS "Anyone can create orders" ON public.orders;
+CREATE POLICY "orders_insert_policy" ON public.orders
+  FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Пользователи могут обновлять свою корзину" ON public.cart_items
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Пользователи могут удалять из своей корзины" ON public.cart_items
-  FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "orders_select_policy" ON public.orders
+  FOR SELECT USING (
+    auth.uid() = user_id OR 
+    (auth.role() = 'authenticated' AND 
+     EXISTS (
+       SELECT 1 FROM public.profiles 
+       WHERE id = auth.uid() AND full_name ILIKE '%admin%'
+     ))
+  );
 ```
 
-## 🔧 Шаг 3: Перезапуск приложения
+## 🔔 Настройка Telegram уведомлений
 
+1. Создайте бота в Telegram через @BotFather
+2. Получите токен бота
+3. Добавьте переменные окружения в Supabase Dashboard → Settings → Environment Variables:
+
+```
+TELEGRAM_BOT_TOKEN=ваш_токен_бота
+TELEGRAM_CHAT_ID=ваш_chat_id
+```
+
+4. Разверните Edge Function:
 ```bash
-npm run dev
+supabase functions deploy send-notification
 ```
 
-## ✅ Проверка работы
+## ✅ Проверка
 
-1. Откройте консоль браузера (F12)
-2. Попробуйте добавить товар в корзину
-3. Проверьте сообщения в консоли
-
-### Ожидаемые сообщения:
-- ✅ `Корзина загружена из Supabase: X товаров` - все работает
-- ⚠️ `Supabase недоступен, используем localStorage` - работает без Supabase
-- ❌ `Ошибка загрузки корзины из Supabase` - проблема с Supabase
-
-## 🎯 Результат
-
-После настройки корзина будет работать стабильно с синхронизацией между устройствами!
+После выполнения SQL кода:
+1. Попробуйте отправить сообщение через форму контактов
+2. Проверьте консоль браузера - ошибка 403 должна исчезнуть
+3. Проверьте Telegram - должно прийти уведомление

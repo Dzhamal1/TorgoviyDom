@@ -5,7 +5,10 @@ export interface Product {
   price: number;
   image: string;
   category: string;
-  inStock: boolean;
+  class?: string;
+  sizes?: string;
+  manufacturer?: string;
+  inStock?: boolean;
 }
 
 export interface CartItem extends Product {

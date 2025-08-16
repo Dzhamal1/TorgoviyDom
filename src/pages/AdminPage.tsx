@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/UI/LoadingSpinner'
+import { api } from '../services/api'
 
 interface AdminStats {
   totalUsers: number
@@ -55,8 +56,20 @@ const AdminPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // Проверка прав администратора
-  const isAdmin = user?.email === 'admin@example.com' || user?.email?.includes('admin')
+  // Проверка прав администратора (отключаем эвристику по email)
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user?.id || '')
+          .single()
+        if (!error && data) setIsAdmin(Boolean(data.is_admin))
+      } catch {}
+    })()
+  }, [user?.id])
 
   useEffect(() => {
     if (isAdmin) {
@@ -181,7 +194,21 @@ const AdminPage: React.FC = () => {
     return new Date(date).toLocaleString('ru-RU')
   }
 
-  if (!isAdmin) {
+  // Серверная проверка прав
+  const [serverAllowed, setServerAllowed] = useState<boolean | null>(null)
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const ok = await api.adminCheck()
+        setServerAllowed(ok)
+      } catch {
+        setServerAllowed(false)
+      }
+    }
+    check()
+  }, [])
+
+  if (serverAllowed === false || (!isAdmin && serverAllowed !== null)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md text-center">

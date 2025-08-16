@@ -117,11 +117,14 @@ export const saveContactMessage = async (data: ContactNotification) => {
       .select()
       .single()
 
+    let dbSaved = true
     if (dbError) {
-      console.error('❌ Ошибка сохранения сообщения в БД:', dbError)
-      return { success: false, error: { message: dbError.message } }
+      // Не прерываем процесс — продолжаем отправку уведомлений
+      dbSaved = false
+      console.error('❌ Ошибка сохранения сообщения в БД (продолжаем без БД):', dbError)
+    } else {
+      console.log('✅ Сообщение сохранено в БД:', savedMessage?.id)
     }
-    console.log('✅ Сообщение сохранено в БД:', savedMessage?.id)
 
     const messageData = {
       ...data,
@@ -137,11 +140,15 @@ export const saveContactMessage = async (data: ContactNotification) => {
     )
 
     console.log('✅ Сообщение полностью обработано')
-    return { 
-      success: true, 
+    const emailSent = (emailResult as any)?.success === true
+    const telegramSent = (telegramResult as any)?.success === true
+    return {
+      success: dbSaved || emailSent || telegramSent,
       data: savedMessage || null,
-      emailSent: (emailResult as any)?.success === true,
-      telegramSent: (telegramResult as any)?.success === true
+      dbSaved,
+      emailSent,
+      telegramSent,
+      error: dbSaved ? undefined : { message: dbError?.message }
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
