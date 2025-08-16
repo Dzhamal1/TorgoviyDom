@@ -92,7 +92,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group">
+    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-transform duration-300 transform hover:-translate-y-1 overflow-hidden group">
       <Link to={`/product/${product.id}`}>
         <div className="relative h-56 bg-gray-100 flex items-center justify-center">
           {product.image ? (

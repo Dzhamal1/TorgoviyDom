@@ -102,20 +102,48 @@ export const saveContactMessage = async (data: ContactNotification) => {
     console.log('💾 Обрабатываем сообщение от:', data.name)
     
     // 1. Сохраняем в БД
-    const { data: savedMessage, error: dbError } = await supabase
-      .from('contact_messages')
-      .insert([
-        {
-          name: data.name,
-          phone: data.phone,
-          email: data.email || null,
-          message: data.message,
-          preferred_contact: data.preferredContact,
-          status: 'new'
+    // Пытаемся обычной вставкой (если RLS позволяет)
+    let savedMessage: any = null
+    let dbError: any = null
+    try {
+      const direct = await supabase
+        .from('contact_messages')
+        .insert([
+          {
+            name: data.name,
+            phone: data.phone,
+            email: data.email || null,
+            message: data.message,
+            preferred_contact: data.preferredContact,
+            status: 'new'
+          }
+        ])
+        .select()
+        .single()
+      savedMessage = direct.data
+      dbError = direct.error
+    } catch (e) {
+      dbError = e
+    }
+
+    // Фолбэк: через edge function с сервисной ролью, если обычная вставка заблокирована RLS
+    if (dbError) {
+      try {
+        const { data: efData, error: efErr } = await supabase.functions.invoke('contact-message', {
+          body: {
+            name: data.name,
+            phone: data.phone,
+            email: data.email || null,
+            message: data.message,
+            preferredContact: data.preferredContact,
+          }
+        })
+        if (!efErr && (efData as any)?.success) {
+          savedMessage = (efData as any).data
+          dbError = null
         }
-      ])
-      .select()
-      .single()
+      } catch {}
+    }
 
     let dbSaved = true
     if (dbError) {

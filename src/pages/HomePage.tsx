@@ -139,10 +139,18 @@ const HomePage: React.FC = () => {
             <div>
               <h2 className="text-3xl font-bold text-gray-800 mb-4">Рекомендуемые товары</h2>
               <p className="text-gray-600">Популярные товары по выгодным ценам</p>
+              {/* Мобильная кнопка под подзаголовком */}
+              <Link
+                to="/search"
+                className="md:hidden inline-flex items-center mt-3 text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Смотреть все
+                <ArrowRight size={20} className="ml-1" />
+              </Link>
             </div>
             <Link
               to="/search"
-              className="text-blue-600 hover:text-blue-800 font-medium flex items-center"
+              className="hidden md:flex text-blue-600 hover:text-blue-800 font-medium items-center"
             >
               Смотреть все
               <ArrowRight size={20} className="ml-1" />
@@ -167,8 +175,11 @@ const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {advantages.map((advantage, index) => (
-              <div key={index} className="bg-white p-6 rounded-lg shadow-md text-center">
-                <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div
+                key={index}
+                className="group bg-white p-6 rounded-lg shadow-md text-center transition-transform duration-200 transform hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform duration-200 group-hover:scale-110">
                   <advantage.icon size={32} className="text-blue-600" />
                 </div>
                 <h3 className="font-semibold text-gray-800 mb-2">{advantage.title}</h3>

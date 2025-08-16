@@ -62,12 +62,12 @@ const Header: React.FC = () => {
       {/* Main header */}
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Лого слева: на мобиле скрыт текст */}
-          <Link to="/" className="hidden md:flex items-center space-x-2">
+          {/* Лого слева: иконка всегда, текст только на десктопе */}
+          <Link to="/" className="flex items-center space-x-2">
             <div className="bg-orange-500 text-white p-2 rounded-lg">
               <span className="text-xl font-bold">ТД</span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <h1 className="text-xl font-bold text-gray-800">Торговый дом</h1>
               <p className="text-sm text-gray-600">Все для стройки</p>
             </div>
@@ -92,13 +92,8 @@ const Header: React.FC = () => {
             </div>
           </form>
 
-          {/* Правый блок: на мобиле все иконки справа: ТД, лупа, корзина, гамбургер */}
-          <div className="flex items-center space-x-2 md:space-x-4 justify-end w-full md:w-auto">
-            {/* Иконка ТД (мобила) */}
-            <Link to="/" className="md:hidden p-2 bg-orange-500 text-white rounded-lg" aria-label="На главную">
-              <span className="text-base font-bold">ТД</span>
-            </Link>
-
+          {/* Правый блок: лупа ближе к корзине, затем гамбургер */}
+          <div className="flex items-center space-x-1 md:space-x-4 justify-end w-full md:w-auto">
             {/* Лупа (мобила) — раскрывает поиск */}
             <button
               className="md:hidden p-2 text-gray-600 hover:text-blue-600 rounded-lg hover:bg-gray-50"

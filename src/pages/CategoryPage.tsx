@@ -168,6 +168,10 @@ const CategoryPage: React.FC = () => {
     }).format(price);
   };
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [categoryId, selectedClass])
+
   return (
     <div>
       <Breadcrumbs items={breadcrumbItems} />
@@ -199,24 +203,13 @@ const CategoryPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Sort dropdown */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="popular">По популярности</option>
-              <option value="name">По названию</option>
-              <option value="price">По цене</option>
-            </select>
-
-            {/* Filter toggle */}
+            {/* Кнопка фильтров справа, без текста */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="lg:hidden flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
+              className="lg:hidden flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg"
+              aria-label="Фильтры"
             >
               <Filter size={20} />
-              <span>Фильтры</span>
             </button>
           </div>
         </div>
@@ -224,11 +217,23 @@ const CategoryPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
           <div className={`w-full lg:w-64 ${showFilters ? 'block' : 'hidden lg:block'}`}>
-            <div className="bg-white p-6 rounded-lg shadow-md sticky top-4">
-              <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-                <Filter size={20} className="mr-2" />
-                Фильтры
-              </h3>
+            <div className="bg-white p-6 rounded-lg shadow-md sticky top-4 max-h-[75vh] overflow-y-auto pr-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center text-gray-800 font-semibold">
+                  <Filter size={20} className="mr-2" />
+                  <span className="hidden">Фильтры</span>
+                </div>
+                {/* Сортировка перенесена внутрь панели фильтров */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="popular">По популярности</option>
+                  <option value="name">По названию</option>
+                  <option value="price">По цене</option>
+                </select>
+              </div>
 
               {/* Фильтр по классу */}
               <div className="mb-6">
