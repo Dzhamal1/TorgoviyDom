@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes fadeIn {
+	0% { opacity: 0; transform: translateY(-8px); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+
 /* Оптимизированные стили для селектора количества товаров */
 .quantity-selector {
   @apply flex items-center bg-gray-50 rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm transition-all duration-200;

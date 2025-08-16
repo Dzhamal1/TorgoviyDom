@@ -85,6 +85,12 @@ const Footer: React.FC = () => {
                 <Send size={16} />
                 <span>Telegram</span>
               </a>
+              <a 
+                href="/partners" 
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors text-sm"
+              >
+                <span>Наши партнёры</span>
+              </a>
             </div>
           </div>
         </div>

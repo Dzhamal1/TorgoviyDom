@@ -259,44 +259,38 @@ const Header: React.FC = () => {
       {/* Mobile navigation */}
       {isMenuOpen && (
         <nav className="md:hidden bg-white border-t shadow-lg">
-          <div className="container mx-auto px-4 py-4">
-            {/* Mobile user info */}
-            {user && (
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-medium">
-                    {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+          <div className="container mx-auto px-4 py-4 transition-all duration-300 ease-out transform animate-[fadeIn_0.25s_ease-out]">
+            {/* Mobile auth/profile header */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              {user ? (
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-medium">
+                      {profile?.full_name ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                    </div>
+                    <div className="font-medium text-gray-800 truncate max-w-[200px]">{profile?.full_name || 'Пользователь'}</div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">{profile?.full_name || 'Пользователь'}</p>
-                    <p className="text-sm text-gray-600">{user.email}</p>
-                    {profile?.phone && (
-                      <p className="text-sm text-gray-500">{profile.phone}</p>
-                    )}
+                  <div className="mt-3 flex items-center justify-between">
+                    <Link to="/profile" className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 text-sm" onClick={() => setIsMenuOpen(false)}>
+                      <Settings size={16} />
+                      <span>Настройки</span>
+                    </Link>
+                    <Link to="/orders" className="text-gray-700 hover:text-blue-600 text-sm font-medium" onClick={() => setIsMenuOpen(false)}>
+                      Мои заказы
+                    </Link>
                   </div>
                 </div>
-                <div className="flex space-x-2">
-                  <Link
-                    to="/profile"
-                    className="flex-1 text-center py-2 px-3 bg-blue-600 text-white rounded-lg text-sm font-medium"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Профиль
-                  </Link>
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex-1 text-center py-2 px-3 bg-red-600 text-white rounded-lg text-sm font-medium"
-                  >
-                    Выйти
-                  </button>
-                </div>
-              </div>
-            )}
+              ) : (
+                <button
+                  onClick={() => { setAuthModalOpen(true); setIsMenuOpen(false) }}
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg text-center font-medium"
+                >
+                  Войти / Зарегистрироваться
+                </button>
+              )}
+            </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[75vh] overflow-y-auto pr-4">
               {categories.map((category) => (
                 <Link
                   key={category.id}
@@ -307,7 +301,6 @@ const Header: React.FC = () => {
                   {category.name}
                 </Link>
               ))}
-              {/* Переносим «Наши партнёры» в мобильное меню */}
               <Link
                 to="/partners"
                 className="block text-gray-700 hover:text-blue-600 font-medium py-3 px-3 rounded-lg hover:bg-gray-50 transition-colors"

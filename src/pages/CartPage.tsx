@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, CreditCard } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
@@ -22,6 +22,11 @@ const CartPage: React.FC = () => {
   // const [selectedCoords, setSelectedCoords] = useState<{ lat: number | null; lon: number | null }>({ lat: null, lon: null });
   const [delivery, setDelivery] = useState<{ distance_km: number; cost_rub: number } | null>(null);
   const navigate = useNavigate();
+
+  // При входе на страницу корзины прокручиваем вверх
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ru-RU', {
@@ -331,13 +336,14 @@ const CartPage: React.FC = () => {
                     type="tel"
                     required
                     value={(() => {
-                      const d = (customerInfo.phone || '').replace(/\D/g, '')
-                      const digits = d.startsWith('8') ? '7' + d.slice(1) : d
-                      const p = (s: string, i: number, c: string) => (s.length > i ? s[i] : c)
-                      const a = p(digits, 1, '_') + p(digits, 2, '_') + p(digits, 3, '_')
-                      const b = p(digits, 4, '_') + p(digits, 5, '_') + p(digits, 6, '_')
-                      const c2 = p(digits, 7, '_') + p(digits, 8, '_')
-                      const d2 = p(digits, 9, '_') + p(digits, 10, '_')
+                      const raw = String(customerInfo.phone || '')
+                      const d = raw.replace(/\D/g, '')
+                      const normalized = d.startsWith('8') ? ('7' + d.slice(1)) : d
+                      const s = normalized.padEnd(11, '_')
+                      const a = s.slice(1, 4)
+                      const b = s.slice(4, 7)
+                      const c2 = s.slice(7, 9)
+                      const d2 = s.slice(9, 11)
                       return `+7 (${a}) ${b}-${c2}-${d2}`
                     })()}
                     onChange={(e) => {

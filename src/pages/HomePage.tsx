@@ -17,30 +17,31 @@ const HomePage: React.FC = () => {
     const loadData = async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
-      
+
+      const timeoutId = setTimeout(() => {
+        dispatch({ type: 'SET_ERROR', payload: 'Загрузка каталога занимает слишком много времени. Попробуйте обновить страницу.' });
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }, 45000);
+
       try {
         console.log('Начинаем загрузку данных...');
-        
-        // Загружаем товары (через Edge Function)
+
         const products = await api.getProducts();
         console.log('Товары загружены:', products.length);
-        
-        // Загружаем категории
+
         const categories = getMockCategories();
         console.log('Категории загружены:', categories.length);
-        
+
         dispatch({ type: 'SET_PRODUCTS', payload: products });
         dispatch({ type: 'SET_CATEGORIES', payload: categories });
-        
       } catch (error) {
         console.log('Ошибка при загрузке, используем мок-данные');
-        
-        // Fallback к мок-данным
         const products = getMockProducts();
         const categories = getMockCategories();
         dispatch({ type: 'SET_PRODUCTS', payload: products });
         dispatch({ type: 'SET_CATEGORIES', payload: categories });
       } finally {
+        clearTimeout(timeoutId);
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
@@ -72,6 +73,23 @@ const HomePage: React.FC = () => {
     },
   ];
 
+  if (state.error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white border border-red-200 rounded-lg p-6 max-w-xl w-full text-center shadow">
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Проблема с загрузкой каталога</h2>
+          <p className="text-gray-700 mb-4">{state.error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center justify-center px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+          >
+            Обновить страницу
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (state.loading) {
     return (
       <LoadingSpinner 
@@ -96,13 +114,18 @@ const HomePage: React.FC = () => {
               Доставка по всей России.
             </p>
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <Link
-                to="/category/stroy"
+              <a
+                href="#categories"
                 className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center justify-center"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const el = document.getElementById('categories');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
               >
                 Посмотреть каталог
                 <ArrowRight size={20} className="ml-2" />
-              </Link>
+              </a>
               <a
                 href="tel:+79001234567"
                 className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center justify-center"
@@ -115,7 +138,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Categories Section */}
-      <section className="py-20 bg-gray-50">
+      <section id="categories" className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-800 mb-4">Категории товаров</h2>

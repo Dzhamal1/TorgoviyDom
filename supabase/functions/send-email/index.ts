@@ -31,6 +31,8 @@ serve(async (req) => {
 
     let subject = ''
     let htmlContent = ''
+    let dbSaved: boolean | null = null
+    let dbError: unknown = null
 
     if (type === 'contact') {
       subject = `Новое сообщение от ${data.name}`
@@ -43,6 +45,46 @@ serve(async (req) => {
         <p>${data.message}</p>
         <p><strong>Предпочитаемый способ связи:</strong> ${data.preferred_contact}</p>
       `
+
+      // Пытаемся записать сообщение в БД contact_messages c использованием сервисного ключа
+      try {
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+        const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (SUPABASE_URL && SERVICE_ROLE_KEY) {
+          const payload = {
+            name: String(data?.name || '').trim(),
+            phone: String(data?.phone || '').trim(),
+            email: data?.email ? String(data.email).trim() : null,
+            message: String(data?.message || '').trim(),
+            preferred_contact: String(data?.preferred_contact || data?.preferredContact || 'phone'),
+            status: 'new'
+          }
+          const url = `${SUPABASE_URL}/rest/v1/contact_messages`
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(payload)
+          })
+          if (r.ok) {
+            dbSaved = true
+          } else {
+            dbSaved = false
+            dbError = await r.text()
+            console.warn('contact_messages insert failed:', dbError)
+          }
+        } else {
+          console.warn('Service env keys are missing, skip DB insert')
+        }
+      } catch (e) {
+        dbSaved = false
+        dbError = e
+        console.warn('DB insert exception:', String(e))
+      }
     } else if (type === 'order') {
       const items = data.items.map((item: any) => `
         <tr>
@@ -102,7 +144,7 @@ serve(async (req) => {
     const resendResult = await resendResponse.json()
     console.log('Resend success:', resendResult)
 
-    return new Response(JSON.stringify({ success: true, resendId: resendResult.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ success: true, resendId: resendResult.id, dbSaved, dbError }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (e) {
     console.error('Send email error:', e)
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

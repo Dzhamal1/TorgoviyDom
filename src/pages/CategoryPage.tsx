@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Filter, Grid, List } from 'lucide-react';
+import { Filter, Grid, List, ChevronDown } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import ProductCard from '../components/UI/ProductCard';
 import Breadcrumbs from '../components/Layout/Breadcrumbs';
@@ -224,30 +224,36 @@ const CategoryPage: React.FC = () => {
                   <span className="hidden">Фильтры</span>
                 </div>
                 {/* Сортировка перенесена внутрь панели фильтров */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="popular">По популярности</option>
-                  <option value="name">По названию</option>
-                  <option value="price">По цене</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="appearance-none pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="popular">По популярности</option>
+                    <option value="name">По названию</option>
+                    <option value="price">По цене</option>
+                  </select>
+                  <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                </div>
               </div>
 
               {/* Фильтр по классу */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Класс</label>
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Все классы</option>
-                  {classes.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="w-full appearance-none pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Все классы</option>
+                    {classes.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                </div>
               </div>
 
               {/* Фильтр по производителю */}
